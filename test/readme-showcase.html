@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReadAside README Showcase</title>
+    <link rel="stylesheet" href="../sidepanel.css" />
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      html,
+      body {
+        width: 1200px;
+        min-width: 1200px;
+        min-height: 760px;
+        overflow: hidden;
+      }
+
+      body {
+        background: #e9eee8;
+      }
+
+      .showcase {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 448px;
+        width: 1200px;
+        height: 760px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 14% 8%, rgba(134, 239, 172, 0.42), transparent 31%),
+          radial-gradient(circle at 86% 91%, rgba(187, 247, 208, 0.48), transparent 34%),
+          linear-gradient(135deg, #f7f4eb 0%, #edf4ed 100%);
+      }
+
+      .showcase::before {
+        position: absolute;
+        inset: 22px;
+        border: 1px solid rgba(20, 83, 45, 0.1);
+        border-radius: 30px;
+        content: "";
+        pointer-events: none;
+      }
+
+      .hero-copy {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        max-width: 650px;
+        flex-direction: column;
+        justify-content: center;
+        padding: 72px 44px 72px 82px;
+      }
+
+      .hero-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 28px;
+        color: #166534;
+        font-size: 13px;
+        font-weight: 850;
+        letter-spacing: 0.18em;
+      }
+
+      .hero-mark {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        border-radius: 11px;
+        background: #166534;
+        color: #fff;
+        font-family: Georgia, "Songti SC", serif;
+        font-size: 18px;
+        letter-spacing: 0;
+        place-items: center;
+        box-shadow: 0 10px 22px rgba(22, 101, 52, 0.22);
+      }
+
+      .hero-copy h1 {
+        max-width: 620px;
+        margin: 0;
+        color: #16231a;
+        font-family: Georgia, "Songti SC", serif;
+        font-size: 64px;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        line-height: 0.98;
+      }
+
+      .hero-copy h1 span {
+        color: #166534;
+      }
+
+      .hero-lead {
+        max-width: 520px;
+        margin: 24px 0 0;
+        color: #4c5b51;
+        font-size: 21px;
+        line-height: 1.55;
+      }
+
+      .hero-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 34px;
+      }
+
+      .hero-tag {
+        border: 1px solid rgba(22, 101, 52, 0.16);
+        border-radius: 999px;
+        padding: 9px 13px;
+        background: rgba(255, 255, 255, 0.72);
+        color: #31513b;
+        font-size: 13px;
+        font-weight: 720;
+      }
+
+      .hero-note {
+        margin: 42px 0 0;
+        color: #718077;
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.13em;
+      }
+
+      .panel-stage {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding-right: 54px;
+      }
+
+      .panel-window {
+        width: 420px;
+        height: 690px;
+        overflow: hidden;
+        border: 1px solid rgba(31, 39, 34, 0.16);
+        border-radius: 24px;
+        background: #f5f3ee;
+        box-shadow:
+          0 30px 70px rgba(31, 39, 34, 0.2),
+          0 4px 14px rgba(31, 39, 34, 0.08);
+      }
+
+      .panel-chrome {
+        display: flex;
+        height: 38px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 15px;
+        border-bottom: 1px solid rgba(31, 39, 34, 0.09);
+        background: rgba(255, 255, 255, 0.84);
+        color: #7a837d;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .window-dots {
+        display: flex;
+        gap: 6px;
+      }
+
+      .window-dots span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #c6cec8;
+      }
+
+      .panel-scroll {
+        height: 652px;
+        overflow: hidden;
+      }
+
+      .panel-window .app-shell {
+        min-height: 652px;
+        gap: 9px;
+        padding: 12px;
+      }
+
+      .panel-window .topbar h1 {
+        font-size: 20px;
+      }
+
+      .panel-window .brand-subtitle {
+        font-size: 9px;
+      }
+
+      .panel-window .page-card {
+        padding: 12px;
+      }
+
+      .panel-window .section-heading h2 {
+        max-width: 190px;
+      }
+
+      .panel-window .page-meta {
+        margin-top: 6px;
+      }
+
+      .panel-window .conversation {
+        min-height: 0;
+        gap: 9px;
+        padding: 2px;
+      }
+
+      .panel-window .message {
+        padding: 9px 11px;
+        font-size: 12px;
+        line-height: 1.58;
+      }
+
+      .panel-window .message-assistant p {
+        margin: 0.45em 0;
+      }
+
+      .answer-points {
+        display: grid;
+        gap: 5px;
+        margin-top: 7px;
+      }
+
+      .answer-point {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: #4d5a51;
+        font-size: 11px;
+      }
+
+      .answer-point::before {
+        width: 5px;
+        height: 5px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: #22a052;
+        content: "";
+      }
+
+      .panel-window .composer {
+        padding: 8px;
+      }
+
+      .panel-window textarea {
+        min-height: 52px;
+        padding: 8px 10px;
+        font-size: 11px;
+      }
+
+      .panel-window .composer-footer {
+        margin-top: 6px;
+      }
+
+      .status-ready {
+        color: #166534;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="showcase">
+      <section class="hero-copy">
+        <div class="hero-brand"><span class="hero-mark">R</span> READASIDE</div>
+        <h1>Ask without leaving <span>the page.</span></h1>
+        <p class="hero-lead">在当前网页旁边读取、核对和提问。少一次复制粘贴，多一点连续思考。</p>
+        <div class="hero-tags">
+          <span class="hero-tag">按需读取</span>
+          <span class="hero-tag">选区优先</span>
+          <span class="hero-tag">本地 BYOK</span>
+          <span class="hero-tag">可检查上下文</span>
+        </div>
+        <p class="hero-note">CHROME SIDE PANEL · OPEN SOURCE · MIT</p>
+      </section>
+
+      <section class="panel-stage" aria-label="ReadAside 侧栏界面预览">
+        <div class="panel-window">
+          <div class="panel-chrome">
+            <div class="window-dots"><span></span><span></span><span></span></div>
+            <span>CHROME 侧栏</span>
+          </div>
+          <div class="panel-scroll">
+            <div class="app-shell">
+              <header class="topbar">
+                <div>
+                  <p class="eyebrow">LOCAL · BYOK</p>
+                  <h1>ReadAside</h1>
+                  <p class="brand-subtitle">网页随读</p>
+                </div>
+                <div class="topbar-actions">
+                  <span class="badge">1 轮</span>
+                  <button class="button button-ghost" type="button">清空对话</button>
+                </div>
+              </header>
+
+              <section class="page-card">
+                <div class="section-heading">
+                  <div>
+                    <p class="section-label">当前资料</p>
+                    <h2>线性注意力技术解读</h2>
+                  </div>
+                  <button class="button button-primary" type="button">重新读取</button>
+                </div>
+                <a class="page-url">https://example.com/linear-attention</a>
+                <p class="page-meta">已读取可见文字 36,820 个字符 · 文档层 1/1</p>
+                <div class="page-action-row">
+                  <button class="button button-secondary" type="button">读取选中文字</button>
+                  <span class="selection-hint">按需读取，不在后台常驻抓取</span>
+                </div>
+              </section>
+
+              <details class="selection-card">
+                <summary>
+                  <span>当前选中文字</span>
+                  <span class="badge badge-success">118 字符</span>
+                </summary>
+              </details>
+
+              <details class="preview-card">
+                <summary>
+                  <span>读取内容预览与诊断</span>
+                  <span class="badge badge-success">36,820 字符</span>
+                </summary>
+              </details>
+
+              <section class="conversation">
+                <div class="message message-user">用简单的话解释这段的核心观点。</div>
+                <div class="message message-assistant">
+                  <p><strong>核心是“让记忆按需更新”。</strong></p>
+                  <p>KDA 不再让整个注意力头用同一个遗忘速度，而是让每个特征通道独立决定保留多少历史信息。</p>
+                  <div class="answer-points">
+                    <span class="answer-point">减少无关状态之间的干扰</span>
+                    <span class="answer-point">长上下文中的记忆更新更灵活</span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="composer">
+                <textarea rows="2" placeholder="继续追问这篇网页…"></textarea>
+                <div class="composer-footer">
+                  <p class="status-text status-ready">回答完成 · 可以继续追问</p>
+                  <button class="button button-primary" type="button">发送</button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

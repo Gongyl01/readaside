@@ -4,7 +4,13 @@ ReadAside 是一个隐私边界清晰的 Chrome 侧栏阅读助手：按需读�
 
 > 当前状态：`active · beta`　当前版本：`0.8.0`　许可证：[MIT](./LICENSE)
 
-![ReadAside 侧栏界面](./docs/screenshots/readaside-sidepanel.png)
+<p align="center">
+  <img
+    src="./docs/screenshots/readaside-sidepanel.png"
+    alt="ReadAside：在当前网页旁边读取、核对和提问"
+    width="960"
+  />
+</p>
 
 ## 为什么做它
 
@@ -103,4 +109,3 @@ docs/                 # 架构、截图与发布清单
 提交前请阅读 [CONTRIBUTING.md](./CONTRIBUTING.md) 和 [SECURITY.md](./SECURITY.md)。运行 `npm run verify`，并确保没有提交 Key、隐私网页内容或仅适用于个人机器的路径。
 
 第三方组件及其许可证见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
-
