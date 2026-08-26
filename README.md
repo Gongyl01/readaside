@@ -6,7 +6,7 @@ ReadAside 是一个隐私边界清晰的 Chrome 侧栏阅读助手：按需读�
 
 <p align="center">
   <img
-    src="./docs/screenshots/readaside-sidepanel.png"
+    src="./docs/screenshots/readaside-hero.png"
     alt="ReadAside：在当前网页旁边读取、核对和提问"
     width="960"
   />

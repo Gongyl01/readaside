@@ -43,7 +43,7 @@ for (const relativePath of requiredFiles) {
 
 const manifest = JSON.parse(contents.get("manifest.json"));
 const packageJson = JSON.parse(await readFile(resolve(projectRoot, "package.json"), "utf8"));
-const screenshot = await stat(resolve(projectRoot, "docs/screenshots/readaside-sidepanel.png"));
+const screenshot = await stat(resolve(projectRoot, "docs/screenshots/readaside-hero.png"));
 
 assert(manifest.manifest_version === 3, "manifest_version 必须为 3");
 assert(manifest.name.startsWith("ReadAside"), "扩展名称必须使用 ReadAside");
