@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReadAside 视觉测试</title>
+    <link rel="stylesheet" href="../sidepanel.css" />
+    <style>
+      body {
+        width: 390px;
+        min-width: 390px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LOCAL · BYOK</p>
+          <h1>ReadAside</h1>
+          <p class="brand-subtitle">网页随读</p>
+        </div>
+        <div class="topbar-actions">
+          <span class="badge">2 轮</span>
+          <button class="button button-ghost" type="button">清空对话</button>
+        </div>
+      </header>
+
+      <section class="page-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-label">当前资料</p>
+            <h2>Kimi K3 技术说明</h2>
+          </div>
+          <div class="page-heading-actions">
+            <button class="button button-primary" type="button">读取当前页</button>
+            <button class="button button-ghost" type="button">清除资料</button>
+          </div>
+        </div>
+        <a class="page-url">https://example.com/kimi-k3</a>
+        <p class="page-meta">
+          已读取可见文字 68,542 个字符 · 文档层 2/3 · 开放 Shadow DOM 1 个 · Canvas 2 个（文字不可直接读取）
+        </p>
+        <div class="page-action-row">
+          <button class="button button-secondary" type="button">读取选中文字</button>
+          <span class="selection-hint">先在网页中拖动选择一段文字</span>
+        </div>
+      </section>
+
+      <details class="selection-card" open>
+        <summary>
+          <span>当前选中文字</span>
+          <span class="badge badge-success">132 字符</span>
+        </summary>
+        <div class="selection-content">
+          <p class="selection-meta">
+            提问时模型会优先参考这段文字，并使用整页内容补充上下文。
+          </p>
+          <pre class="selection-preview-text" tabindex="0">KDA 的核心创新在于细粒度通道级遗忘门控。每个特征维度拥有独立门控，从而能够选择性保留或遗忘状态中的信息。</pre>
+          <button class="button button-ghost" type="button">清除选区</button>
+        </div>
+      </details>
+
+      <details class="preview-card" open>
+        <summary>
+          <span>读取内容预览与诊断</span>
+          <span class="badge badge-success">68,542 字符</span>
+        </summary>
+        <div class="preview-content">
+          <p class="preview-help">下面是实际作为当前网页资料发送给模型的完整文本。</p>
+          <div class="diagnostic-grid">
+            <div class="diagnostic-item">
+              <span class="diagnostic-label">发送给模型</span>
+              <span class="diagnostic-value">68,542 字符</span>
+            </div>
+            <div class="diagnostic-item">
+              <span class="diagnostic-label">文档层</span>
+              <span class="diagnostic-value">2/3</span>
+            </div>
+            <div class="diagnostic-item">
+              <span class="diagnostic-label">开放 Shadow DOM</span>
+              <span class="diagnostic-value">1</span>
+            </div>
+            <div class="diagnostic-item">
+              <span class="diagnostic-label">Canvas</span>
+              <span class="diagnostic-value">2</span>
+            </div>
+          </div>
+          <div class="diagnostic-messages">
+            <p class="diagnostic-message warning">
+              检测到 1 个文档层未能读取，可能受到跨域或浏览器安全限制。
+            </p>
+            <p class="diagnostic-message warning">
+              检测到 2 个 Canvas；其中肉眼可见的文字不会出现在当前文本中。
+            </p>
+          </div>
+          <pre class="page-preview-text" tabindex="0">Kimi Delta Attention (KDA) 技术原理
+
+1. 背景：线性注意力
+传统 Transformer 的注意力机制使用 softmax 计算 token 间的相似度矩阵。
+
+[嵌入页面：任务日志]
+53 mainTableWriteback: computed
+64 callback response body
+65 callback SUCCESS
+66 uploaded internal log with size: 95869
+
+这里继续展示实际发送给模型的完整文本，内容较长时在此区域内部滚动，不会撑开整个侧栏。</pre>
+        </div>
+      </details>
+
+      <details class="settings-card">
+        <summary>
+          <span>DeepSeek API Key</span>
+          <span class="badge badge-success">已配置 ••••1234</span>
+        </summary>
+      </details>
+
+      <section class="conversation">
+        <div class="message message-user">用你自己的话解释 KDA 的核心改进。</div>
+        <div class="message message-assistant">
+          <p>KDA 的关键不是简单增加一层注意力，而是把“要遗忘多少”从每个头一个数，细化到每个特征通道一个数。</p>
+          <p>因此，不同类型的信息可以按各自节奏保留或衰减，长上下文中的状态更新更灵活。</p>
+        </div>
+        <div class="message message-user">再联网核对一下最新资料。</div>
+        <div class="message message-assistant message-error">
+          <div class="request-error-card">
+            <p class="request-error-label">HTTP 503 · DeepSeek 服务</p>
+            <p class="request-error-message">DeepSeek 服务暂时不可用，请稍后重试。</p>
+            <p class="request-error-advice">这是服务端错误。原问题和上下文已经保留，不会自动重复计费。</p>
+            <div class="request-error-actions">
+              <button class="button button-primary" type="button">重新发送</button>
+              <a class="button button-ghost request-status-link">查看服务状态</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="composer">
+        <textarea rows="3" placeholder="例如：作者这一段的核心意思是什么？"></textarea>
+        <div class="composer-footer">
+          <p class="status-text error">DeepSeek 服务暂时不可用</p>
+          <button class="button button-primary" type="button">发送</button>
+        </div>
+      </section>
+    </main>
+    <script>
+      const preview = document.querySelector(".page-preview-text");
+      preview.textContent += `\n\n${Array.from(
+        { length: 120 },
+        (_, index) => `${index + 1}. 用于验证长内容区域内部滚动的测试文本。`
+      ).join("\n")}`;
+      const selectionPreview = document.querySelector(".selection-preview-text");
+      selectionPreview.textContent += `\n${Array.from(
+        { length: 40 },
+        (_, index) => `${index + 1}. 用于验证长选区内部滚动的测试文字。`
+      ).join("\n")}`;
+    </script>
+  </body>
+</html>

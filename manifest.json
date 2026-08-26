@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "ReadAside · 网页随读",
+  "short_name": "ReadAside",
+  "version": "0.8.0",
+  "description": "在 Chrome 侧栏中读取网页和选中文字，并使用你自己的 DeepSeek API Key 连续提问。",
+  "minimum_chrome_version": "114",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "sidePanel",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.deepseek.com/*",
+    "file:///*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.mjs",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "打开 ReadAside"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}

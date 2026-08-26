@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReadAside · 网页随读</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+    <link rel="stylesheet" href="dist/markdown-renderer.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LOCAL · BYOK</p>
+          <h1>ReadAside</h1>
+          <p class="brand-subtitle">网页随读</p>
+        </div>
+        <div class="topbar-actions">
+          <span id="conversationCount" class="badge">0 轮</span>
+          <button id="clearChatButton" class="button button-ghost" type="button">清空对话</button>
+        </div>
+      </header>
+
+      <section class="page-card" aria-labelledby="pageHeading">
+        <div class="section-heading">
+          <div>
+            <p class="section-label">当前资料</p>
+            <h2 id="pageHeading">尚未读取网页</h2>
+          </div>
+          <div class="page-heading-actions">
+            <button id="readPageButton" class="button button-primary" type="button">读取当前页</button>
+            <button id="clearPageButton" class="button button-ghost" type="button" disabled>
+              清除资料
+            </button>
+          </div>
+        </div>
+        <a id="pageUrl" class="page-url hidden" target="_blank" rel="noreferrer"></a>
+        <p id="pageMeta" class="page-meta">打开想阅读的网页，然后点击“读取当前页”。</p>
+        <div class="page-action-row">
+          <button
+            id="readSelectionButton"
+            class="button button-secondary"
+            type="button"
+            disabled
+          >
+            读取选中文字
+          </button>
+          <span class="selection-hint">先在网页中拖动选择一段文字</span>
+        </div>
+      </section>
+
+      <details id="selectionCard" class="selection-card hidden" open>
+        <summary>
+          <span>当前选中文字</span>
+          <span id="selectionCount" class="badge badge-success">0 字符</span>
+        </summary>
+        <div class="selection-content">
+          <p id="selectionMeta" class="selection-meta"></p>
+          <pre id="selectionPreviewText" class="selection-preview-text" tabindex="0"></pre>
+          <button id="clearSelectionButton" class="button button-ghost" type="button">
+            清除选区
+          </button>
+        </div>
+      </details>
+
+      <details id="pagePreview" class="preview-card hidden">
+        <summary>
+          <span>读取内容预览与诊断</span>
+          <span id="previewCount" class="badge badge-success">0 字符</span>
+        </summary>
+        <div class="preview-content">
+          <p class="preview-help">下面是实际作为当前网页资料发送给模型的完整文本。</p>
+          <div id="diagnosticGrid" class="diagnostic-grid" aria-label="读取诊断统计"></div>
+          <div id="diagnosticMessages" class="diagnostic-messages" aria-live="polite"></div>
+          <pre id="pagePreviewText" class="page-preview-text" tabindex="0"></pre>
+        </div>
+      </details>
+
+      <details class="settings-card">
+        <summary>
+          <span>DeepSeek API Key</span>
+          <span id="keyBadge" class="badge badge-warning">未配置</span>
+        </summary>
+        <div class="settings-content">
+          <label for="apiKeyInput">个人 API Key</label>
+          <input
+            id="apiKeyInput"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="粘贴 DeepSeek API Key"
+          />
+          <p class="help-text">
+            Key 只保存在本机 Chrome 扩展存储中，并直接用于访问 DeepSeek。
+          </p>
+          <div class="button-row">
+            <button id="saveKeyButton" class="button button-primary" type="button">保存</button>
+            <button id="testKeyButton" class="button button-secondary" type="button">测试连接</button>
+            <button id="clearKeyButton" class="button button-danger" type="button">清除</button>
+          </div>
+        </div>
+      </details>
+
+      <section id="conversation" class="conversation" aria-live="polite">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">读</div>
+          <h2>边读边问</h2>
+          <p>读取网页后，可以让我解释概念、梳理论点，或者回答页面中的具体问题。</p>
+        </div>
+      </section>
+
+      <section class="composer" aria-label="提问">
+        <label class="sr-only" for="questionInput">输入问题</label>
+        <textarea
+          id="questionInput"
+          rows="3"
+          placeholder="例如：作者这一段的核心意思是什么？"
+        ></textarea>
+        <div class="composer-footer">
+          <p id="statusText" class="status-text">准备就绪</p>
+          <div class="button-row compact">
+            <button id="cancelButton" class="button button-secondary hidden" type="button">停止</button>
+            <button id="sendButton" class="button button-primary" type="button">发送</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="sidepanel.mjs"></script>
+  </body>
+</html>

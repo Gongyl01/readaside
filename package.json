@@ -1,0 +1,34 @@
+{
+  "name": "readaside-extension",
+  "version": "0.8.0",
+  "description": "A privacy-conscious Chrome side panel for reading webpages with your own DeepSeek API key.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "chrome-extension",
+    "side-panel",
+    "web-reading",
+    "deepseek",
+    "byok"
+  ],
+  "scripts": {
+    "build": "esbuild lib/markdown.mjs --bundle --format=esm --minify --outfile=dist/markdown-renderer.mjs --asset-names=fonts/[name]-[hash] --loader:.woff2=file --loader:.woff=file --loader:.ttf=file",
+    "check": "node scripts/check.mjs",
+    "test": "node --test",
+    "verify": "npm run check && npm test && node --check background.mjs && node --check sidepanel.mjs",
+    "package": "npm run build && npm run verify && node scripts/package.mjs"
+  },
+  "dependencies": {
+    "dompurify": "3.4.14",
+    "katex": "0.18.0",
+    "marked": "18.0.7",
+    "marked-footnote": "1.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

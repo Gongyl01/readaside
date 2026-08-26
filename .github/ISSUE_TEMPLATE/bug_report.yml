@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a reproducible ReadAside problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include API keys, private page content, or Chrome profile data.
+  - type: input
+    id: version
+    attributes:
+      label: ReadAside and Chrome versions
+      placeholder: ReadAside 0.8.0, Chrome 140
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use a public page or a minimal synthetic example.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
