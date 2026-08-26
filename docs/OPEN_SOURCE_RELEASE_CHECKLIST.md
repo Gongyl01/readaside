@@ -13,8 +13,8 @@
 
 ## GitHub repository settings
 
-- [ ] 创建公开仓库 `readaside`，不要勾选自动生成 README/LICENSE，避免首次提交冲突。
-- [ ] 默认分支使用 `main`，推送前检查首个提交范围。
+- [x] 创建公开仓库 `readaside`，没有自动生成 README/LICENSE，首次提交无冲突。
+- [x] 默认分支使用 `main`，推送前已检查首个提交范围。
 - [ ] 开启 GitHub Actions，并要求 CI 通过后才能合并。
 - [ ] 开启 Dependabot alerts、secret scanning 和 private vulnerability reporting。
 - [ ] 在仓库 About 中设置简介、主题标签和截图。
