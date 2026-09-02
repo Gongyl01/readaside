@@ -1,6 +1,6 @@
 {
   "name": "readaside-extension",
-  "version": "0.8.0",
+  "version": "0.10.0",
   "description": "A privacy-conscious Chrome side panel for reading webpages with your own DeepSeek API key.",
   "private": true,
   "license": "MIT",
@@ -18,8 +18,12 @@
   "scripts": {
     "build": "esbuild lib/markdown.mjs --bundle --format=esm --minify --outfile=dist/markdown-renderer.mjs --asset-names=fonts/[name]-[hash] --loader:.woff2=file --loader:.woff=file --loader:.ttf=file",
     "check": "node scripts/check.mjs",
+    "evaluate:context": "node scripts/evaluate-context.mjs",
+    "evaluate:context:compare": "node scripts/evaluate-context.mjs --compare=docs/evaluation/snapshots/0.9.2.json",
+    "evaluate:context:gate": "node scripts/evaluate-context.mjs --enforce",
+    "evaluate:citations": "node scripts/evaluate-citations.mjs",
     "test": "node --test",
-    "verify": "npm run check && npm test && node --check background.mjs && node --check sidepanel.mjs",
+    "verify": "npm run check && npm test && npm run evaluate:context:compare && npm run evaluate:citations && node --check background.mjs && node --check sidepanel.mjs",
     "package": "npm run build && npm run verify && node scripts/package.mjs"
   },
   "dependencies": {

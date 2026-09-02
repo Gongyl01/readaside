@@ -11,18 +11,40 @@ const requiredFiles = [
   "sidepanel.css",
   "sidepanel.mjs",
   "lib/conversation.mjs",
+  "lib/block-citations.mjs",
+  "lib/context-retriever.mjs",
   "lib/deepseek.mjs",
   "lib/input.mjs",
   "lib/markdown.mjs",
   "lib/markdown-parser.mjs",
   "lib/page-extractor.mjs",
+  "lib/page-document.mjs",
   "lib/page-preview.mjs",
   "lib/port-client.mjs",
   "lib/request-error.mjs",
   "lib/selection-extractor.mjs",
   "lib/tab-access.mjs",
+  "scripts/evaluate-context.mjs",
+  "scripts/evaluate-citations.mjs",
   "dist/markdown-renderer.mjs",
   "dist/markdown-renderer.css",
+  "test/fixtures/context/technical-doc.html",
+  "test/fixtures/context/technical-doc.json",
+  "test/fixtures/context/long-article.html",
+  "test/fixtures/context/long-article.json",
+  "test/fixtures/context/complex-dom.html",
+  "test/fixtures/context/complex-dom.json",
+  "test/evaluation/technical-doc.questions.json",
+  "test/evaluation/long-article.questions.json",
+  "test/evaluation/complex-dom.questions.json",
+  "test/evaluation/block-citations.cases.json",
+  "docs/evaluation/baseline-0.9.0.md",
+  "docs/evaluation/retrieval-baseline-0.9.1.md",
+  "docs/evaluation/evaluation-0.9.2.md",
+  "docs/evaluation/citation-validation-0.10.0.md",
+  "docs/evaluation/README.md",
+  "docs/evaluation/manual-validation-template.md",
+  "docs/evaluation/snapshots/0.9.2.json",
   "README.md",
   "PRIVACY.md",
   "SECURITY.md",
@@ -78,6 +100,24 @@ const sourceText = [
     .filter(([name]) => name.startsWith("lib/"))
     .map(([, content]) => content)
 ].join("\n");
+
+const sidepanelHtml = contents.get("sidepanel.html");
+const sidepanelScript = contents.get("sidepanel.mjs");
+const queriedElementIds = [...sidepanelScript.matchAll(/document\.querySelector\("#([A-Za-z][\w-]*)"\)/g)]
+  .map((match) => match[1]);
+for (const id of queriedElementIds) {
+  assert(
+    new RegExp(`id=["']${id}["']`).test(sidepanelHtml),
+    `sidepanel.mjs 引用了不存在的界面元素：#${id}`
+  );
+}
+
+const declaredElementIds = [...sidepanelHtml.matchAll(/\sid=["']([^"']+)["']/g)]
+  .map((match) => match[1]);
+assert(
+  new Set(declaredElementIds).size === declaredElementIds.length,
+  "sidepanel.html 中存在重复 id"
+);
 
 assert(!/backend-api\//.test(sourceText), "不允许调用网页内部 API");
 assert(!/https:\/\/(?:cdn|unpkg|jsdelivr)\./.test(sourceText), "运行时依赖必须本地打包，不允许使用 CDN");

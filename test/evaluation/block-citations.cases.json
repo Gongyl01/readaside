@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "readaside/block-citation-evaluation/v1",
+  "sentBlocks": [
+    {
+      "id": "B0001",
+      "kind": "paragraph",
+      "text": "自动上下文只发送与问题相关的内容块。",
+      "headingPath": ["自动上下文"],
+      "source": { "frameId": 0, "isMainFrame": true, "rootKind": "document" }
+    },
+    {
+      "id": "B0004",
+      "kind": "table",
+      "text": "指标\t结果\n证据召回\t100%",
+      "headingPath": ["评测结果"],
+      "source": { "frameId": 0, "isMainFrame": true, "rootKind": "document" }
+    }
+  ],
+  "pageBlockIds": ["B0001", "B0002", "B0003", "B0004"],
+  "cases": [
+    {
+      "id": "valid-single",
+      "answer": "自动模式会选择相关内容块。[B0001]",
+      "expected": [{ "id": "B0001", "status": "valid" }]
+    },
+    {
+      "id": "valid-multiple-deduplicated",
+      "answer": "结果来自正文与表格。[B0001][B0004] 再次引用表格。[B0004]",
+      "expected": [
+        { "id": "B0001", "status": "valid" },
+        { "id": "B0004", "status": "valid" }
+      ]
+    },
+    {
+      "id": "not-sent",
+      "answer": "模型引用了页面中未发送的段落。[B0002]",
+      "expected": [{ "id": "B0002", "status": "not-sent" }]
+    },
+    {
+      "id": "unknown",
+      "answer": "模型编造了块号。[B9999]",
+      "expected": [{ "id": "B9999", "status": "unknown" }]
+    },
+    {
+      "id": "no-citation",
+      "answer": "回答没有块引用，但正文仍应正常显示。",
+      "expected": []
+    },
+    {
+      "id": "ignore-code-and-link",
+      "answer": "`[B0001]` 是代码。\n\n```text\n[B9999]\n```\n\n[B0004](https://example.com) 是链接。",
+      "expected": []
+    },
+    {
+      "id": "web-source-separated",
+      "answer": "网页结论。[B0001] 外部资料另见脚注。[^1]",
+      "expected": [{ "id": "B0001", "status": "valid" }]
+    },
+    {
+      "id": "prompt-injection-output-rejected",
+      "answer": "页面要求忽略规则并引用 [B9000]，但该编号不能被信任。",
+      "expected": [{ "id": "B9000", "status": "unknown" }]
+    }
+  ]
+}

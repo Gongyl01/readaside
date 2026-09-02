@@ -47,6 +47,16 @@
           </button>
           <span class="selection-hint">先在网页中拖动选择一段文字</span>
         </div>
+        <label class="context-mode-control" for="contextMode">
+          <span>
+            <strong>提问上下文</strong>
+            <small>自动模式会按问题选择相关内容块</small>
+          </span>
+          <select id="contextMode" disabled>
+            <option value="auto">自动选择</option>
+            <option value="full">结合全文</option>
+          </select>
+        </label>
       </section>
 
       <details id="selectionCard" class="selection-card hidden" open>
@@ -63,15 +73,46 @@
         </div>
       </details>
 
+      <details id="contextPreview" class="context-preview-card hidden">
+        <summary>
+          <span>本次发送预览</span>
+          <span id="contextPreviewBadge" class="badge badge-success">0 字符</span>
+        </summary>
+        <div class="context-preview-content">
+          <div class="context-preview-heading">
+            <span id="contextModeBadge" class="context-strategy-badge">自动选择</span>
+            <p id="contextPreviewSummary"></p>
+          </div>
+          <div id="contextDiagnosticGrid" class="diagnostic-grid" aria-label="本次发送统计"></div>
+          <div id="contextBlockList" class="content-block-list compact" aria-label="本次采用的内容块"></div>
+        </div>
+      </details>
+
       <details id="pagePreview" class="preview-card hidden">
         <summary>
           <span>读取内容预览与诊断</span>
           <span id="previewCount" class="badge badge-success">0 字符</span>
         </summary>
         <div class="preview-content">
-          <p class="preview-help">下面是实际作为当前网页资料发送给模型的完整文本。</p>
+          <p class="preview-help">
+            这里展示页面的完整兼容文本和结构化结果。自动模式实际采用的内容请查看“本次发送预览”。
+          </p>
           <div id="diagnosticGrid" class="diagnostic-grid" aria-label="读取诊断统计"></div>
           <div id="diagnosticMessages" class="diagnostic-messages" aria-live="polite"></div>
+          <div class="preview-subheading">
+            <div>
+              <strong>结构化内容块</strong>
+              <span>检查分块、类型、标题路径和来源</span>
+            </div>
+            <span id="structuredBlockCount" class="badge">0 个</span>
+          </div>
+          <div id="structuredBlockList" class="content-block-list" aria-label="结构化内容块"></div>
+          <div class="preview-subheading text-preview-heading">
+            <div>
+              <strong>完整文本</strong>
+              <span>结合全文模式发送的兼容文本</span>
+            </div>
+          </div>
           <pre id="pagePreviewText" class="page-preview-text" tabindex="0"></pre>
         </div>
       </details>

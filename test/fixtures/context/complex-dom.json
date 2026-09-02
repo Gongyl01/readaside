@@ -1,0 +1,318 @@
+{
+  "schemaVersion": "readaside/context-fixture/v1",
+  "id": "complex-dom",
+  "title": "星港数据中心灾备演练控制台",
+  "url": "https://fixtures.readaside.test/starport-drill",
+  "html": "complex-dom.html",
+  "compatibilityPrefix": [
+    "控制台",
+    "/",
+    "事件",
+    "...",
+    "帮助"
+  ],
+  "blocks": [
+    {
+      "kind": "heading",
+      "text": "星港数据中心灾备演练控制台",
+      "headingPath": ["星港数据中心灾备演练控制台"]
+    },
+    {
+      "kind": "paragraph",
+      "text": "这是一个虚构的多文档层演练页面，用于验证 ReadAside 对主页面、可访问 iframe 和开放式 Shadow DOM 内容的本地检索。所有名称、地址、口令和指标均为测试数据。演练模拟主站断电、数据库接管和签名密钥轮换，但不会连接任何真实基础设施。",
+      "headingPath": ["星港数据中心灾备演练控制台"]
+    },
+    {
+      "kind": "heading",
+      "text": "主页面：演练规则",
+      "headingPath": ["星港数据中心灾备演练控制台", "主页面：演练规则"]
+    },
+    {
+      "kind": "paragraph",
+      "text": "演练由 incident commander 宣布开始和结束，traffic lead 执行入口切流，database lead 负责复制与提升，security lead 处理临时凭证。任何人都可以提出暂停，但只有 incident commander 可以恢复演练。每个角色必须在操作前复述目标区域和回退点。",
+      "headingPath": ["星港数据中心灾备演练控制台", "主页面：演练规则"]
+    },
+    {
+      "kind": "list",
+      "text": "确认备用站最近一次全量备份校验通过。\n冻结非演练发布并记录当前版本。\n建立独立语音频道和文字时间线。\n确认客户支持已经收到演练窗口通知。",
+      "headingPath": ["星港数据中心灾备演练控制台", "主页面：演练规则"]
+    },
+    {
+      "kind": "table",
+      "text": "等级 判定条件 通知时限\nSEV-1 核心写入不可用超过 5 分钟 立即\nSEV-2 只读流量错误率超过 2% 10 分钟内\nSEV-3 单个非核心组件降级 30 分钟内",
+      "headingPath": ["星港数据中心灾备演练控制台", "主页面：演练规则"],
+      "table": {
+        "rows": [
+          {
+            "cells": [
+              { "text": "等级", "header": true },
+              { "text": "判定条件", "header": true },
+              { "text": "通知时限", "header": true }
+            ]
+          },
+          {
+            "cells": [
+              { "text": "SEV-1", "header": false },
+              { "text": "核心写入不可用超过 5 分钟", "header": false },
+              { "text": "立即", "header": false }
+            ]
+          },
+          {
+            "cells": [
+              { "text": "SEV-2", "header": false },
+              { "text": "只读流量错误率超过 2%", "header": false },
+              { "text": "10 分钟内", "header": false }
+            ]
+          },
+          {
+            "cells": [
+              { "text": "SEV-3", "header": false },
+              { "text": "单个非核心组件降级", "header": false },
+              { "text": "30 分钟内", "header": false }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "heading",
+      "text": "入口切流",
+      "headingPath": ["星港数据中心灾备演练控制台", "入口切流"]
+    },
+    {
+      "kind": "paragraph",
+      "text": "入口流量按 5%、25%、50%、100% 四档转向备用站，每档至少观察 10 分钟。任一档的五分钟窗口错误率高于 0.8%，或者 p95 延迟比演练前基线上升 40%，traffic lead 必须停止放量并回到上一档；两个条件都恢复后也不能自动继续，仍需 incident commander 明确批准。",
+      "headingPath": ["星港数据中心灾备演练控制台", "入口切流"]
+    },
+    {
+      "kind": "code",
+      "text": "drillctl traffic shift --site starport-b --percent 25 --ticket DRILL-204\ndrillctl traffic status --window 5m",
+      "headingPath": ["星港数据中心灾备演练控制台", "入口切流"]
+    },
+    {
+      "kind": "paragraph",
+      "text": "命令只能由当班 traffic lead 在受控终端执行，第二名观察员必须核对工单编号、目标站点和百分比。聊天窗口中的命令示例只用于阅读，禁止复制后直接运行。自动化账户可以读取状态，但没有修改流量权重的权限。",
+      "headingPath": ["星港数据中心灾备演练控制台", "入口切流"]
+    },
+    {
+      "kind": "heading",
+      "text": "嵌入手册：数据库接管",
+      "headingPath": ["数据库接管手册"],
+      "source": {
+        "frameId": 17,
+        "frameLabel": "数据库接管手册",
+        "frameTitle": "数据库接管手册",
+        "frameUrl": "https://fixtures.readaside.test/starport-drill/database",
+        "rootKind": "document"
+      }
+    },
+    {
+      "kind": "paragraph",
+      "text": "本次演练的恢复点目标 RPO 为 30 秒，恢复时间目标 RTO 为 20 分钟。RPO 从主站最后确认提交时间计算，RTO 从 incident commander 宣布主站不可用开始，到备用站通过写入探针并开放首档流量为止。两项指标必须分别记录，不能用流量恢复时间代替数据恢复点。",
+      "headingPath": ["数据库接管手册", "目标与计时"],
+      "source": {
+        "frameId": 17,
+        "frameLabel": "数据库接管手册",
+        "frameTitle": "数据库接管手册",
+        "frameUrl": "https://fixtures.readaside.test/starport-drill/database",
+        "rootKind": "document"
+      }
+    },
+    {
+      "kind": "heading",
+      "text": "提升备用数据库",
+      "headingPath": ["数据库接管手册", "提升备用数据库"],
+      "source": {
+        "frameId": 17,
+        "frameLabel": "数据库接管手册",
+        "frameTitle": "数据库接管手册",
+        "frameUrl": "https://fixtures.readaside.test/starport-drill/database",
+        "rootKind": "document"
+      }
+    },
+    {
+      "kind": "paragraph",
+      "text": "database lead 先暂停主站写入口，再确认备用站 replay_lag_seconds 连续三次低于 10。随后写入全局 fence token，等待主站确认拒绝旧 token，最后才提升备用站并执行一条可回滚的探针写入。任何一步超时都保留只读服务，不跳过 fence 检查。",
+      "headingPath": ["数据库接管手册", "提升备用数据库"],
+      "source": {
+        "frameId": 17,
+        "frameLabel": "数据库接管手册",
+        "frameTitle": "数据库接管手册",
+        "frameUrl": "https://fixtures.readaside.test/starport-drill/database",
+        "rootKind": "document"
+      }
+    },
+    {
+      "kind": "paragraph",
+      "text": "fence token 是防止双主写入的硬条件。新主库只有持有最新 token 才接受写请求，旧主库在看见更高 token 后必须保持只读；如果旧主库无法确认隔离，演练停在只读状态并由基础设施值班人员执行带外断网，不能依赖应用侧重试来掩盖分裂脑风险。",
+      "headingPath": ["数据库接管手册", "提升备用数据库"],
+      "source": {
+        "frameId": 17,
+        "frameLabel": "数据库接管手册",
+        "frameTitle": "数据库接管手册",
+        "frameUrl": "https://fixtures.readaside.test/starport-drill/database",
+        "rootKind": "document"
+      }
+    },
+    {
+      "kind": "table",
+      "text": "复制状态 replay_lag_seconds 动作\n健康 小于等于 10 可继续三次确认\n观察 大于 10 且小于等于 30 等待并复测\n阻断 大于 30 禁止提升",
+      "headingPath": ["数据库接管手册", "提升备用数据库"],
+      "source": {
+        "frameId": 17,
+        "frameLabel": "数据库接管手册",
+        "frameTitle": "数据库接管手册",
+        "frameUrl": "https://fixtures.readaside.test/starport-drill/database",
+        "rootKind": "document"
+      },
+      "table": {
+        "rows": [
+          {
+            "cells": [
+              { "text": "复制状态", "header": true },
+              { "text": "replay_lag_seconds", "header": true },
+              { "text": "动作", "header": true }
+            ]
+          },
+          {
+            "cells": [
+              { "text": "健康", "header": false },
+              { "text": "小于等于 10", "header": false },
+              { "text": "可继续三次确认", "header": false }
+            ]
+          },
+          {
+            "cells": [
+              { "text": "观察", "header": false },
+              { "text": "大于 10 且小于等于 30", "header": false },
+              { "text": "等待并复测", "header": false }
+            ]
+          },
+          {
+            "cells": [
+              { "text": "阻断", "header": false },
+              { "text": "大于 30", "header": false },
+              { "text": "禁止提升", "header": false }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "heading",
+      "text": "回切主站",
+      "headingPath": ["数据库接管手册", "回切主站"],
+      "source": {
+        "frameId": 17,
+        "frameLabel": "数据库接管手册",
+        "frameTitle": "数据库接管手册",
+        "frameUrl": "https://fixtures.readaside.test/starport-drill/database",
+        "rootKind": "document"
+      }
+    },
+    {
+      "kind": "paragraph",
+      "text": "主站修复后不得立即回切。必须先作为副本追平，连续 30 分钟保持 replay_lag_seconds 不高于 5，并完成 100 个抽样对象的双向校验和比对。回切沿用入口的分档流量步骤；若任何抽样校验和不一致，取消当日回切并保留备用站为主。",
+      "headingPath": ["数据库接管手册", "回切主站"],
+      "source": {
+        "frameId": 17,
+        "frameLabel": "数据库接管手册",
+        "frameTitle": "数据库接管手册",
+        "frameUrl": "https://fixtures.readaside.test/starport-drill/database",
+        "rootKind": "document"
+      }
+    },
+    {
+      "kind": "heading",
+      "text": "Shadow 面板：签名密钥应急轮换",
+      "headingPath": ["签名密钥应急轮换"],
+      "source": {
+        "frameId": 0,
+        "frameLabel": "星港数据中心灾备演练控制台",
+        "rootKind": "shadow",
+        "shadowDepth": 1
+      }
+    },
+    {
+      "kind": "paragraph",
+      "text": "应急轮换实行双人控制：security lead 创建新密钥，另一名 security reviewer 核对作用域后批准激活。旧密钥与新密钥并行验证 15 分钟，确认所有生产者都出现新 key_id 后再撤销旧密钥。用于演练的临时授权 token 在签发后 20 分钟自动失效。",
+      "headingPath": ["签名密钥应急轮换", "双人控制"],
+      "source": {
+        "frameId": 0,
+        "frameLabel": "星港数据中心灾备演练控制台",
+        "rootKind": "shadow",
+        "shadowDepth": 1
+      }
+    },
+    {
+      "kind": "list",
+      "text": "记录请求人、批准人和工单号。\n记录旧 key_id、新 key_id 与激活时间。\n记录生产者切换覆盖率和撤销结果。\n不记录密钥正文或临时 token。",
+      "headingPath": ["签名密钥应急轮换", "审计字段"],
+      "source": {
+        "frameId": 0,
+        "frameLabel": "星港数据中心灾备演练控制台",
+        "rootKind": "shadow",
+        "shadowDepth": 1
+      }
+    },
+    {
+      "kind": "paragraph",
+      "text": "禁止把密钥正文、临时 token 或完整签名头粘贴到聊天、工单和演练时间线。排障只使用 key_id、请求时间和脱敏后的生产者编号；如果必须检查原始签名，只能在受控终端内比较哈希结果，屏幕录制和剪贴板同步必须提前关闭。",
+      "headingPath": ["签名密钥应急轮换", "敏感信息边界"],
+      "source": {
+        "frameId": 0,
+        "frameLabel": "星港数据中心灾备演练控制台",
+        "rootKind": "shadow",
+        "shadowDepth": 1
+      }
+    },
+    {
+      "kind": "paragraph",
+      "text": "轮换审计包由 security lead 导出，reviewer 在演练结束前验证签名。导出包只包含操作元数据和哈希，不包含任何可恢复密钥材料；若导出失败，密钥轮换本身不回滚，但事件保持开启，直到审计记录补齐并完成第二人复核。",
+      "headingPath": ["签名密钥应急轮换", "审计字段"],
+      "source": {
+        "frameId": 0,
+        "frameLabel": "星港数据中心灾备演练控制台",
+        "rootKind": "shadow",
+        "shadowDepth": 1
+      }
+    },
+    {
+      "kind": "heading",
+      "text": "跨层观测与结束条件",
+      "headingPath": ["星港数据中心灾备演练控制台", "跨层观测与结束条件"]
+    },
+    {
+      "kind": "paragraph",
+      "text": "主页面同时显示 write_success_rate、read_error_rate、traffic_weight 和 active_site。观测窗口必须使用同一版本的仪表盘定义；如果指标定义在演练中途变更，incident scribe 要在时间线上标记断点，断点前后的数值不能直接合并计算。",
+      "headingPath": ["星港数据中心灾备演练控制台", "跨层观测与结束条件"]
+    },
+    {
+      "kind": "paragraph",
+      "text": "数据库手册另行要求监控 replay_lag_seconds、fence_token_generation 和 checksum_mismatch_total。只有入口错误率正常并不能证明数据层健康；traffic lead 与 database lead 必须在每个放量档位共同签字，避免主页面绿色状态掩盖复制积压。",
+      "headingPath": ["数据库接管手册", "跨层观测"],
+      "source": {
+        "frameId": 17,
+        "frameLabel": "数据库接管手册",
+        "frameTitle": "数据库接管手册",
+        "frameUrl": "https://fixtures.readaside.test/starport-drill/database",
+        "rootKind": "document"
+      }
+    },
+    {
+      "kind": "paragraph",
+      "text": "事件只能在流量恢复 100%、连续 30 分钟没有新的 SEV-1 或 SEV-2 告警、数据库探针写入成功，并且密钥审计包通过第二人复核后关闭。未完成的改进项可以转入后续工单，但每项必须有负责人和截止日期，不能用待办列表代替结束条件。",
+      "headingPath": ["星港数据中心灾备演练控制台", "跨层观测与结束条件"]
+    },
+    {
+      "kind": "quote",
+      "text": "演练目标不是制造零告警的截图，而是证明团队能在告警出现时停下、解释、回退并留下可审计记录。",
+      "headingPath": ["星港数据中心灾备演练控制台", "跨层观测与结束条件"]
+    },
+    {
+      "kind": "paragraph",
+      "text": "演练时间线、批准记录和脱敏指标快照保留 180 天，原始终端录屏保留 30 天后自动删除。任何延长保留都需要事件编号、理由和新的到期时间；密钥正文与临时 token 从不进入保留范围，因此也不存在通过延长期限保存它们的例外。",
+      "headingPath": ["星港数据中心灾备演练控制台", "跨层观测与结束条件"]
+    }
+  ]
+}

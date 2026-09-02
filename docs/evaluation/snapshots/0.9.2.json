@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "readaside/context-evaluation-snapshot/v1",
+  "version": "0.9.2",
+  "generatedAt": "2026-09-01",
+  "summary": {
+    "questionCount": 30,
+    "expectedCount": 32,
+    "matchedCount": 32,
+    "recallPercent": 100,
+    "medianReductionPercent": 76,
+    "fallbackCount": 0,
+    "passed": true
+  },
+  "scaleBenchmark": {
+    "blockCount": 2000,
+    "runs": 30,
+    "observedP95Milliseconds": 8.474,
+    "thresholdMilliseconds": 100
+  },
+  "datasets": [
+    {
+      "fixtureId": "complex-dom",
+      "dataset": "test/evaluation/complex-dom.questions.json",
+      "fixture": "test/fixtures/context/complex-dom.json",
+      "pageChars": 2586,
+      "blockCount": 29,
+      "sourceLayerCount": 3,
+      "questionCount": 10,
+      "expectedCount": 11,
+      "matchedCount": 11,
+      "recallPercent": 100,
+      "medianReductionPercent": 77,
+      "fallbackCount": 0,
+      "passed": true,
+      "cases": [
+        { "id": "CD01", "recallPercent": 100, "reductionPercent": 77, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0005", "B0006", "B0026"], "expectedBlockIds": ["B0006"] },
+        { "id": "CD02", "recallPercent": 100, "reductionPercent": 77, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0007", "B0008", "B0011", "B0012"], "expectedBlockIds": ["B0008"] },
+        { "id": "CD03", "recallPercent": 100, "reductionPercent": 70, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0004", "B0005", "B0007", "B0009", "B0010"], "expectedBlockIds": ["B0010"] },
+        { "id": "CD04", "recallPercent": 100, "reductionPercent": 80, "effectiveMode": "retrieved", "selectedBlockIds": ["B0011", "B0012", "B0024", "B0025"], "expectedBlockIds": ["B0012"] },
+        { "id": "CD05", "recallPercent": 100, "reductionPercent": 76, "effectiveMode": "retrieved", "selectedBlockIds": ["B0013", "B0014", "B0015", "B0016"], "expectedBlockIds": ["B0015"] },
+        { "id": "CD06", "recallPercent": 100, "reductionPercent": 76, "effectiveMode": "retrieved", "selectedBlockIds": ["B0013", "B0014", "B0015", "B0016"], "expectedBlockIds": ["B0016"] },
+        { "id": "CD07", "recallPercent": 100, "reductionPercent": 89, "effectiveMode": "retrieved", "selectedBlockIds": ["B0013", "B0017", "B0018"], "expectedBlockIds": ["B0018"] },
+        { "id": "CD08", "recallPercent": 100, "reductionPercent": 83, "effectiveMode": "retrieved", "selectedBlockIds": ["B0019", "B0020", "B0023"], "expectedBlockIds": ["B0020"] },
+        { "id": "CD09", "recallPercent": 100, "reductionPercent": 76, "effectiveMode": "retrieved", "selectedBlockIds": ["B0007", "B0009", "B0010", "B0019", "B0022"], "expectedBlockIds": ["B0022"] },
+        { "id": "CD10", "recallPercent": 100, "reductionPercent": 82, "effectiveMode": "retrieved", "selectedBlockIds": ["B0027", "B0028", "B0029"], "expectedBlockIds": ["B0027", "B0029"] }
+      ]
+    },
+    {
+      "fixtureId": "long-article",
+      "dataset": "test/evaluation/long-article.questions.json",
+      "fixture": "test/fixtures/context/long-article.json",
+      "pageChars": 2177,
+      "blockCount": 27,
+      "sourceLayerCount": 1,
+      "questionCount": 10,
+      "expectedCount": 11,
+      "matchedCount": 11,
+      "recallPercent": 100,
+      "medianReductionPercent": 67,
+      "fallbackCount": 0,
+      "passed": true,
+      "cases": [
+        { "id": "LA01", "recallPercent": 100, "reductionPercent": 79, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0004", "B0005"], "expectedBlockIds": ["B0004"] },
+        { "id": "LA02", "recallPercent": 100, "reductionPercent": 80, "effectiveMode": "retrieved", "selectedBlockIds": ["B0010", "B0011", "B0012"], "expectedBlockIds": ["B0011", "B0012"] },
+        { "id": "LA03", "recallPercent": 100, "reductionPercent": 77, "effectiveMode": "retrieved", "selectedBlockIds": ["B0010", "B0013", "B0014", "B0015"], "expectedBlockIds": ["B0014"] },
+        { "id": "LA04", "recallPercent": 100, "reductionPercent": 60, "effectiveMode": "retrieved", "selectedBlockIds": ["B0010", "B0011", "B0012", "B0013", "B0014", "B0015"], "expectedBlockIds": ["B0015"] },
+        { "id": "LA05", "recallPercent": 100, "reductionPercent": 67, "effectiveMode": "retrieved", "selectedBlockIds": ["B0001", "B0002", "B0016", "B0017", "B0018"], "expectedBlockIds": ["B0017"] },
+        { "id": "LA06", "recallPercent": 100, "reductionPercent": 60, "effectiveMode": "retrieved", "selectedBlockIds": ["B0019", "B0020", "B0021", "B0025", "B0026", "B0027"], "expectedBlockIds": ["B0020"] },
+        { "id": "LA07", "recallPercent": 100, "reductionPercent": 67, "effectiveMode": "retrieved", "selectedBlockIds": ["B0019", "B0020", "B0021", "B0022", "B0023"], "expectedBlockIds": ["B0021"] },
+        { "id": "LA08", "recallPercent": 100, "reductionPercent": 63, "effectiveMode": "retrieved", "selectedBlockIds": ["B0006", "B0008", "B0009", "B0022", "B0023", "B0024"], "expectedBlockIds": ["B0023"] },
+        { "id": "LA09", "recallPercent": 100, "reductionPercent": 57, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0004", "B0005", "B0022", "B0023", "B0024"], "expectedBlockIds": ["B0024"] },
+        { "id": "LA10", "recallPercent": 100, "reductionPercent": 80, "effectiveMode": "retrieved", "selectedBlockIds": ["B0025", "B0026", "B0027"], "expectedBlockIds": ["B0027"] }
+      ]
+    },
+    {
+      "fixtureId": "technical-doc",
+      "dataset": "test/evaluation/technical-doc.questions.json",
+      "fixture": "test/fixtures/context/technical-doc.json",
+      "pageChars": 2650,
+      "blockCount": 24,
+      "sourceLayerCount": 1,
+      "questionCount": 10,
+      "expectedCount": 10,
+      "matchedCount": 10,
+      "recallPercent": 100,
+      "medianReductionPercent": 63,
+      "fallbackCount": 0,
+      "passed": true,
+      "cases": [
+        { "id": "TD01", "recallPercent": 100, "reductionPercent": 77, "effectiveMode": "retrieved", "selectedBlockIds": ["B0001", "B0003", "B0004", "B0005"], "expectedBlockIds": ["B0004"] },
+        { "id": "TD02", "recallPercent": 100, "reductionPercent": 59, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0004", "B0005", "B0006", "B0008", "B0009"], "expectedBlockIds": ["B0005"] },
+        { "id": "TD03", "recallPercent": 100, "reductionPercent": 60, "effectiveMode": "retrieved", "selectedBlockIds": ["B0006", "B0007", "B0008", "B0022", "B0023", "B0024"], "expectedBlockIds": ["B0007"] },
+        { "id": "TD04", "recallPercent": 100, "reductionPercent": 63, "effectiveMode": "retrieved", "selectedBlockIds": ["B0006", "B0008", "B0009", "B0011", "B0012", "B0013"], "expectedBlockIds": ["B0008"] },
+        { "id": "TD05", "recallPercent": 100, "reductionPercent": 63, "effectiveMode": "retrieved", "selectedBlockIds": ["B0006", "B0007", "B0008", "B0009", "B0010"], "expectedBlockIds": ["B0010"] },
+        { "id": "TD06", "recallPercent": 100, "reductionPercent": 84, "effectiveMode": "retrieved", "selectedBlockIds": ["B0011", "B0012", "B0013"], "expectedBlockIds": ["B0013"] },
+        { "id": "TD07", "recallPercent": 100, "reductionPercent": 65, "effectiveMode": "retrieved", "selectedBlockIds": ["B0014", "B0015", "B0016", "B0019", "B0020", "B0021"], "expectedBlockIds": ["B0015"] },
+        { "id": "TD08", "recallPercent": 100, "reductionPercent": 65, "effectiveMode": "retrieved", "selectedBlockIds": ["B0014", "B0015", "B0016", "B0019", "B0020", "B0021"], "expectedBlockIds": ["B0016"] },
+        { "id": "TD09", "recallPercent": 100, "reductionPercent": 87, "effectiveMode": "retrieved", "selectedBlockIds": ["B0014", "B0017", "B0018"], "expectedBlockIds": ["B0018"] },
+        { "id": "TD10", "recallPercent": 100, "reductionPercent": 57, "effectiveMode": "retrieved", "selectedBlockIds": ["B0014", "B0015", "B0016", "B0022", "B0023", "B0024"], "expectedBlockIds": ["B0023"] }
+      ]
+    }
+  ]
+}

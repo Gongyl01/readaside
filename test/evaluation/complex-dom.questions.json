@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "readaside/context-evaluation/v1",
+  "fixture": "../fixtures/context/complex-dom.json",
+  "thresholds": {
+    "recallPercent": 85,
+    "medianReductionPercent": 60
+  },
+  "cases": [
+    {
+      "id": "CD01",
+      "question": "什么情况属于 SEV-1，要求多久通知？",
+      "evidenceQuotes": [
+        "SEV-1 核心写入不可用超过 5 分钟 立即"
+      ]
+    },
+    {
+      "id": "CD02",
+      "question": "入口按什么档位切流，遇到哪些指标必须回退？",
+      "evidenceQuotes": [
+        "入口流量按 5%、25%、50%、100% 四档转向备用站",
+        "五分钟窗口错误率高于 0.8%，或者 p95 延迟比演练前基线上升 40%"
+      ]
+    },
+    {
+      "id": "CD03",
+      "question": "谁可以执行切流命令，第二名观察员核对什么？",
+      "evidenceQuotes": [
+        "命令只能由当班 traffic lead 在受控终端执行",
+        "第二名观察员必须核对工单编号、目标站点和百分比"
+      ]
+    },
+    {
+      "id": "CD04",
+      "question": "数据库接管演练的 RPO 和 RTO 分别是多少，RTO 到什么时刻结束？",
+      "evidenceQuotes": [
+        "恢复点目标 RPO 为 30 秒，恢复时间目标 RTO 为 20 分钟",
+        "到备用站通过写入探针并开放首档流量为止"
+      ]
+    },
+    {
+      "id": "CD05",
+      "question": "fence token 怎样阻止双主写入，旧主库无法隔离时怎么办？",
+      "evidenceQuotes": [
+        "新主库只有持有最新 token 才接受写请求，旧主库在看见更高 token 后必须保持只读",
+        "演练停在只读状态并由基础设施值班人员执行带外断网"
+      ]
+    },
+    {
+      "id": "CD06",
+      "question": "replay_lag_seconds 大于 30 时允许提升备用数据库吗？",
+      "evidenceQuotes": [
+        "阻断 大于 30 禁止提升"
+      ]
+    },
+    {
+      "id": "CD07",
+      "question": "主站回切前复制延迟和抽样校验必须满足什么条件？",
+      "evidenceQuotes": [
+        "连续 30 分钟保持 replay_lag_seconds 不高于 5",
+        "完成 100 个抽样对象的双向校验和比对"
+      ]
+    },
+    {
+      "id": "CD08",
+      "question": "应急密钥轮换如何实行双人控制，临时授权多久失效？",
+      "evidenceQuotes": [
+        "security lead 创建新密钥，另一名 security reviewer 核对作用域后批准激活",
+        "临时授权 token 在签发后 20 分钟自动失效"
+      ]
+    },
+    {
+      "id": "CD09",
+      "question": "哪些敏感内容禁止粘贴到聊天和工单，必须看原始签名时如何处理？",
+      "evidenceQuotes": [
+        "禁止把密钥正文、临时 token 或完整签名头粘贴到聊天、工单和演练时间线",
+        "只能在受控终端内比较哈希结果"
+      ]
+    },
+    {
+      "id": "CD10",
+      "question": "事件关闭要同时满足哪些条件，演练时间线保留多久？",
+      "evidenceQuotes": [
+        "流量恢复 100%、连续 30 分钟没有新的 SEV-1 或 SEV-2 告警、数据库探针写入成功，并且密钥审计包通过第二人复核后关闭",
+        "演练时间线、批准记录和脱敏指标快照保留 180 天"
+      ]
+    }
+  ]
+}

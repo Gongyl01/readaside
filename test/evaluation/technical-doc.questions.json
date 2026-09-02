@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "readaside/context-evaluation/v1",
+  "fixture": "../fixtures/context/technical-doc.json",
+  "thresholds": {
+    "recallPercent": 85,
+    "medianReductionPercent": 60
+  },
+  "cases": [
+    {
+      "id": "TD01",
+      "question": "入口支持哪些 HTTPS 接口，返回 202 代表什么？",
+      "evidenceQuotes": [
+        "入口网关同时提供 HTTPS Webhook 和批量 HTTPS 接口",
+        "返回 202 只表示事件已经进入 RelayMesh 的持久化队列"
+      ]
+    },
+    {
+      "id": "TD02",
+      "question": "RelayMesh 在什么范围内保证消息顺序？",
+      "evidenceQuotes": [
+        "只在这个范围内保证先进先出；不同 routing_key 之间不承诺全局顺序"
+      ]
+    },
+    {
+      "id": "TD03",
+      "question": "遇到 429 时怎样退避，最多重试多少次？",
+      "evidenceQuotes": [
+        "带抖动的指数退避，基础间隔为 2 秒，最长间隔为 5 分钟，最多尝试 8 次"
+      ]
+    },
+    {
+      "id": "TD04",
+      "question": "幂等键会保留多久，重复提交时会发生什么？",
+      "evidenceQuotes": [
+        "在租户范围内保存幂等键 24 小时；窗口内重复提交相同键时返回第一次接收的事件编号"
+      ]
+    },
+    {
+      "id": "TD05",
+      "question": "哪些失败会进入 dead-letter，死信记录保存什么？",
+      "evidenceQuotes": [
+        "事件用尽 8 次尝试，或者收到不可重试的 4xx 后，会写入租户专属的 dead-letter 队列",
+        "死信记录保存最后一次响应状态、截断到 4 KB 的响应正文、累计尝试次数和原始事件编号"
+      ]
+    },
+    {
+      "id": "TD06",
+      "question": "审计事件默认保留多少天，可配置范围是多少？",
+      "evidenceQuotes": [
+        "审计事件 180 天 90–365 天"
+      ]
+    },
+    {
+      "id": "TD07",
+      "question": "持续积压时为什么要同时看 partition_lag 和 oldest_event_age？",
+      "evidenceQuotes": [
+        "前者反映等待事件数量，后者反映最老事件已经等待多久"
+      ]
+    },
+    {
+      "id": "TD08",
+      "question": "结构化日志必须包含哪些字段，又禁止记录哪些敏感内容？",
+      "evidenceQuotes": [
+        "结构化日志必须包含 tenant_id、event_id、routing_key_hash、partition_id、attempt 和 outcome",
+        "日志禁止写入完整事件正文、签名密钥或原始 routing_key"
+      ]
+    },
+    {
+      "id": "TD09",
+      "question": "怎样进行无停机签名密钥轮换？",
+      "evidenceQuotes": [
+        "先创建新密钥并让生产者双写验证，再切换主密钥，确认旧密钥连续 24 小时无流量后撤销"
+      ]
+    },
+    {
+      "id": "TD10",
+      "question": "partition_lag 和 oldest_event_age 同时上升时应该如何排查？",
+      "evidenceQuotes": [
+        "如果两者同时持续上升，先按 partition_id 检查是否只有少数热分区，再查看对应下游的 429、5xx 和网络超时比例"
+      ]
+    }
+  ]
+}

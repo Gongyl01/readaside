@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RelayMesh 运维指南</title>
+    <style>
+      body {
+        max-width: 860px;
+        margin: 40px auto;
+        padding: 0 24px 80px;
+        color: #1f2933;
+        font: 16px/1.7 system-ui, sans-serif;
+      }
+      nav ul {
+        display: flex;
+        gap: 10px;
+        padding: 0;
+        list-style: none;
+      }
+      pre,
+      table {
+        width: 100%;
+        overflow: auto;
+        background: #f5f7f8;
+      }
+      th,
+      td {
+        padding: 8px 10px;
+        border: 1px solid #ccd3d8;
+        text-align: left;
+      }
+    </style>
+  </head>
+  <body>
+    <nav aria-label="文档分页导航">
+      <ul>
+        <li><a href="#overview">概览</a></li>
+        <li>/</li>
+        <li><a href="#delivery">投递</a></li>
+        <li>...</li>
+        <li><a href="#troubleshooting">排障</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <h1>RelayMesh 运维指南</h1>
+      <p>RelayMesh 是一个虚构的多租户事件中继服务，用于把业务系统产生的事件可靠地转发给下游消费者。本夹具只用于 ReadAside 的离线上下文评测，不对应任何真实产品。系统将入口接收、分区路由、持久化、投递和观测拆成独立阶段，以便在局部故障时继续接收事件，并让运维人员能够区分入口过载、消费端变慢和权限配置错误。</p>
+
+      <h2 id="overview">入口与协议</h2>
+      <p>入口网关同时提供 HTTPS Webhook 和批量 HTTPS 接口。单条 Webhook 请求体上限为 512 KB，批量接口最多接收 200 条事件；两种接口都要求 Content-Type 为 application/json。网关完成租户识别、签名校验和基础字段检查后才返回 202 Accepted，返回 202 只表示事件已经进入 RelayMesh 的持久化队列，不代表下游消费者已经处理成功。</p>
+      <p>每条事件必须携带 routing_key。RelayMesh 对相同租户、相同 routing_key 的事件计算同一个分区，因此只在这个范围内保证先进先出；不同 routing_key 之间不承诺全局顺序。扩容分区时，控制面会等待旧分区水位归零后再切换映射，避免同一个 routing_key 在迁移窗口同时写入两个分区。</p>
+
+      <h2 id="delivery">投递与失败恢复</h2>
+      <p>下游返回 408、429 或 5xx 时，投递器执行带抖动的指数退避，基础间隔为 2 秒，最长间隔为 5 分钟，最多尝试 8 次。下游返回其他 4xx 时默认视为不可重试错误，立即进入死信流程。Retry-After 响应头存在且不超过 5 分钟时优先采用该值，但仍会加入少量随机抖动，避免大量租户在同一时刻恢复请求。</p>
+      <p>生产者可以在 X-Relay-Idempotency-Key 中提供幂等键。RelayMesh 在租户范围内保存幂等键 24 小时；窗口内重复提交相同键时返回第一次接收的事件编号，不再写入新事件。幂等键不会跨租户比较，也不能替代消费者自身的幂等处理，因为网络超时可能发生在下游已经处理但 RelayMesh 尚未收到响应之后。</p>
+      <pre><code>curl -X POST https://relay.example.test/v1/events \
+  -H "Content-Type: application/json" \
+  -H "X-Relay-Idempotency-Key: order-2026-0042" \
+  -d '{"routing_key":"customer-42","type":"order.updated"}'</code></pre>
+      <p>事件用尽 8 次尝试，或者收到不可重试的 4xx 后，会写入租户专属的 dead-letter 队列。死信记录保存最后一次响应状态、截断到 4 KB 的响应正文、累计尝试次数和原始事件编号。运维人员可以在修复下游后执行 replay；replay 会创建新的投递尝试，但沿用原始事件编号，便于审计系统串联前后记录。</p>
+
+      <h2>存储与保留</h2>
+      <p>事件正文和投递状态写入加密存储，所有时间均使用 UTC。保留策略按数据类型分别计算，并在每天 02:00 UTC 执行清理。清理任务只删除超过保留期且没有活动 replay 的记录；正在回放的死信即使超过默认保留期，也会保留到 replay 结束后的下一次清理窗口。</p>
+      <table>
+        <thead>
+          <tr><th>数据类型</th><th>默认保留期</th><th>可配置范围</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>已成功投递事件</td><td>7 天</td><td>1–30 天</td></tr>
+          <tr><td>死信事件</td><td>30 天</td><td>7–90 天</td></tr>
+          <tr><td>审计事件</td><td>180 天</td><td>90–365 天</td></tr>
+        </tbody>
+      </table>
+
+      <h2>可观测性</h2>
+      <p>核心指标包括 relay_ingress_rate、relay_delivery_success_rate、relay_retry_rate、relay_partition_lag 和 relay_oldest_event_age_seconds。持续积压时应同时观察 partition_lag 与 oldest_event_age：前者反映等待事件数量，后者反映最老事件已经等待多久。仅看瞬时入口速率容易把短时流量峰值误判成消费能力不足。</p>
+      <p>结构化日志必须包含 tenant_id、event_id、routing_key_hash、partition_id、attempt 和 outcome。日志禁止写入完整事件正文、签名密钥或原始 routing_key；排障需要关联业务对象时，应由业务系统使用 event_id 查询自己的安全日志。所有重放操作还会记录 operator、reason 和 source_dead_letter_id。</p>
+
+      <h2>认证与密钥轮换</h2>
+      <p>生产者使用 HMAC-SHA256 对时间戳和原始请求体签名，RelayMesh 只接受与服务器时间相差不超过 5 分钟的请求。每个租户最多同时启用两个签名密钥，以支持无停机轮换：先创建新密钥并让生产者双写验证，再切换主密钥，确认旧密钥连续 24 小时无流量后撤销。密钥只在创建时显示一次，服务端日志和诊断页面都不会回显密钥内容。</p>
+
+      <h2>部署与变更</h2>
+      <ol>
+        <li>先在 canary 分区部署新版本，并保持至少 15 分钟。</li>
+        <li>确认错误率、重试率和 oldest_event_age 没有持续上升。</li>
+        <li>按 10%、25%、50%、100% 的租户比例逐级放量。</li>
+        <li>任一级出现连续 5 分钟异常时停止放量并回滚。</li>
+      </ol>
+      <blockquote>数据库迁移必须向后兼容至少一个应用版本；禁止在同一次发布中先删除旧字段再更新所有投递器。</blockquote>
+
+      <h2 id="troubleshooting">常见排障</h2>
+      <p>如果 relay_partition_lag 上升但 relay_oldest_event_age_seconds 保持稳定，通常是短时入口峰值，先观察两个退避周期再扩容。如果两者同时持续上升，先按 partition_id 检查是否只有少数热分区，再查看对应下游的 429、5xx 和网络超时比例；单个 routing_key 过热时应由生产者调整路由粒度，而不是绕过顺序保证强制拆分现有分区。</p>
+      <p>如果业务方报告重复消费，先使用 event_id 判断是同一事件的多次投递还是生产者提交了多个事件。相同 event_id 的重复投递属于至少一次语义，消费者应使用 event_id 去重；不同 event_id 但业务载荷相同，则检查生产者是否稳定设置 X-Relay-Idempotency-Key，以及重复提交是否发生在 24 小时窗口之外。</p>
+    </main>
+  </body>
+</html>
