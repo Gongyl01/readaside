@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "readaside/context-evaluation-snapshot/v1",
+  "version": "0.10.3",
+  "generatedAt": "2026-09-03",
+  "summary": {
+    "questionCount": 30,
+    "expectedCount": 32,
+    "matchedCount": 32,
+    "recallPercent": 100,
+    "medianReductionPercent": 85,
+    "fallbackCount": 0,
+    "shortPage": {
+      "questionCount": 30,
+      "expectedCount": 32,
+      "matchedCount": 32,
+      "recallPercent": 100,
+      "fullContextCount": 30,
+      "passed": true
+    },
+    "passed": true
+  },
+  "scaleBenchmark": {
+    "blockCount": 2000,
+    "runs": 30,
+    "observedP95Milliseconds": 7.638,
+    "thresholdMilliseconds": 100
+  },
+  "datasets": [
+    {
+      "fixtureId": "complex-dom",
+      "dataset": "test/evaluation/complex-dom.questions.json",
+      "fixture": "test/fixtures/context/complex-dom.json",
+      "shortPage": { "pageChars": 2586, "expectedCount": 11, "matchedCount": 11, "recallPercent": 100, "fullContextCount": 10, "passed": true },
+      "pageChars": 24036,
+      "blockCount": 29,
+      "sourceLayerCount": 3,
+      "questionCount": 10,
+      "expectedCount": 11,
+      "matchedCount": 11,
+      "recallPercent": 100,
+      "medianReductionPercent": 86,
+      "fallbackCount": 0,
+      "passed": true,
+      "cases": [
+        { "id": "CD01", "question": "什么情况属于 SEV-1，要求多久通知？", "recallPercent": 100, "reductionPercent": 92, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0005", "B0006", "B0026"], "expectedBlockIds": ["B0006"] },
+        { "id": "CD02", "question": "入口按什么档位切流，遇到哪些指标必须回退？", "recallPercent": 100, "reductionPercent": 86, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0007", "B0008", "B0011", "B0012"], "expectedBlockIds": ["B0008"] },
+        { "id": "CD03", "question": "谁可以执行切流命令，第二名观察员核对什么？", "recallPercent": 100, "reductionPercent": 85, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0004", "B0005", "B0007", "B0009", "B0010"], "expectedBlockIds": ["B0010"] },
+        { "id": "CD04", "question": "数据库接管演练的 RPO 和 RTO 分别是多少，RTO 到什么时刻结束？", "recallPercent": 100, "reductionPercent": 86, "effectiveMode": "retrieved", "selectedBlockIds": ["B0011", "B0012", "B0024", "B0025"], "expectedBlockIds": ["B0012"] },
+        { "id": "CD05", "question": "fence token 怎样阻止双主写入，旧主库无法隔离时怎么办？", "recallPercent": 100, "reductionPercent": 85, "effectiveMode": "retrieved", "selectedBlockIds": ["B0013", "B0014", "B0015", "B0016"], "expectedBlockIds": ["B0015"] },
+        { "id": "CD06", "question": "replay_lag_seconds 大于 30 时允许提升备用数据库吗？", "recallPercent": 100, "reductionPercent": 85, "effectiveMode": "retrieved", "selectedBlockIds": ["B0013", "B0014", "B0015", "B0016"], "expectedBlockIds": ["B0016"] },
+        { "id": "CD07", "question": "主站回切前复制延迟和抽样校验必须满足什么条件？", "recallPercent": 100, "reductionPercent": 93, "effectiveMode": "retrieved", "selectedBlockIds": ["B0013", "B0017", "B0018"], "expectedBlockIds": ["B0018"] },
+        { "id": "CD08", "question": "应急密钥轮换如何实行双人控制，临时授权多久失效？", "recallPercent": 100, "reductionPercent": 86, "effectiveMode": "retrieved", "selectedBlockIds": ["B0019", "B0020", "B0023"], "expectedBlockIds": ["B0020"] },
+        { "id": "CD09", "question": "哪些敏感内容禁止粘贴到聊天和工单，必须看原始签名时如何处理？", "recallPercent": 100, "reductionPercent": 86, "effectiveMode": "retrieved", "selectedBlockIds": ["B0007", "B0009", "B0010", "B0019", "B0022"], "expectedBlockIds": ["B0022"] },
+        { "id": "CD10", "question": "事件关闭要同时满足哪些条件，演练时间线保留多久？", "recallPercent": 100, "reductionPercent": 86, "effectiveMode": "retrieved", "selectedBlockIds": ["B0027", "B0028", "B0029"], "expectedBlockIds": ["B0027", "B0029"] }
+      ]
+    },
+    {
+      "fixtureId": "long-article",
+      "dataset": "test/evaluation/long-article.questions.json",
+      "fixture": "test/fixtures/context/long-article.json",
+      "shortPage": { "pageChars": 2177, "expectedCount": 11, "matchedCount": 11, "recallPercent": 100, "fullContextCount": 10, "passed": true },
+      "pageChars": 24032,
+      "blockCount": 27,
+      "sourceLayerCount": 1,
+      "questionCount": 10,
+      "expectedCount": 11,
+      "matchedCount": 11,
+      "recallPercent": 100,
+      "medianReductionPercent": 79,
+      "fallbackCount": 0,
+      "passed": true,
+      "cases": [
+        { "id": "LA01", "question": "基线调查怎样证明污染并非均匀分布？", "recallPercent": 100, "reductionPercent": 86, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0004", "B0005"], "expectedBlockIds": ["B0004"] },
+        { "id": "LA02", "question": "第一轮柳苗为什么只存活 34%，第二轮具体改变了什么？", "recallPercent": 100, "reductionPercent": 86, "effectiveMode": "retrieved", "selectedBlockIds": ["B0010", "B0011", "B0012"], "expectedBlockIds": ["B0011", "B0012"] },
+        { "id": "LA03", "question": "支沟湿地由哪些区域串联，雨季总氮和总磷削减率是多少？", "recallPercent": 100, "reductionPercent": 86, "effectiveMode": "retrieved", "selectedBlockIds": ["B0010", "B0013", "B0014", "B0015"], "expectedBlockIds": ["B0014"] },
+        { "id": "LA04", "question": "连续干旱时什么情况下才允许给核心水池补水？", "recallPercent": 100, "reductionPercent": 72, "effectiveMode": "retrieved", "selectedBlockIds": ["B0010", "B0011", "B0012", "B0013", "B0014", "B0015"], "expectedBlockIds": ["B0015"] },
+        { "id": "LA05", "question": "2022 年暴雨中漫滩蓄了多少水，对洪峰有什么影响？", "recallPercent": 100, "reductionPercent": 79, "effectiveMode": "retrieved", "selectedBlockIds": ["B0001", "B0002", "B0016", "B0017", "B0018"], "expectedBlockIds": ["B0017"] },
+        { "id": "LA06", "question": "生态租赁协议签多久，租金怎样计算？", "recallPercent": 100, "reductionPercent": 72, "effectiveMode": "retrieved", "selectedBlockIds": ["B0019", "B0020", "B0021", "B0025", "B0026", "B0027"], "expectedBlockIds": ["B0020"] },
+        { "id": "LA07", "question": "中游照明如何兼顾居民安全和动物通道？", "recallPercent": 100, "reductionPercent": 79, "effectiveMode": "retrieved", "selectedBlockIds": ["B0019", "B0020", "B0021", "B0022", "B0023"], "expectedBlockIds": ["B0021"] },
+        { "id": "LA08", "question": "水质样品用什么质量控制规则，哪些批次不能进入趋势分析？", "recallPercent": 100, "reductionPercent": 91, "effectiveMode": "retrieved", "selectedBlockIds": ["B0006", "B0008", "B0009", "B0022", "B0023", "B0024"], "expectedBlockIds": ["B0023"] },
+        { "id": "LA09", "question": "2025 年本地水生植物数量和每公里维护费用分别是多少？", "recallPercent": 100, "reductionPercent": 78, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0004", "B0005", "B0022", "B0023", "B0024"], "expectedBlockIds": ["B0024"] },
+        { "id": "LA10", "question": "新增河段进入设计评审前必须同时满足哪三项条件？", "recallPercent": 100, "reductionPercent": 86, "effectiveMode": "retrieved", "selectedBlockIds": ["B0025", "B0026", "B0027"], "expectedBlockIds": ["B0027"] }
+      ]
+    },
+    {
+      "fixtureId": "technical-doc",
+      "dataset": "test/evaluation/technical-doc.questions.json",
+      "fixture": "test/fixtures/context/technical-doc.json",
+      "shortPage": { "pageChars": 2650, "expectedCount": 10, "matchedCount": 10, "recallPercent": 100, "fullContextCount": 10, "passed": true },
+      "pageChars": 24034,
+      "blockCount": 24,
+      "sourceLayerCount": 1,
+      "questionCount": 10,
+      "expectedCount": 10,
+      "matchedCount": 10,
+      "recallPercent": 100,
+      "medianReductionPercent": 81,
+      "fallbackCount": 0,
+      "passed": true,
+      "cases": [
+        { "id": "TD01", "question": "入口支持哪些 HTTPS 接口，返回 202 代表什么？", "recallPercent": 100, "reductionPercent": 83, "effectiveMode": "retrieved", "selectedBlockIds": ["B0001", "B0003", "B0004", "B0005"], "expectedBlockIds": ["B0004"] },
+        { "id": "TD02", "question": "RelayMesh 在什么范围内保证消息顺序？", "recallPercent": 100, "reductionPercent": 73, "effectiveMode": "retrieved", "selectedBlockIds": ["B0003", "B0004", "B0005", "B0006", "B0008", "B0009"], "expectedBlockIds": ["B0005"] },
+        { "id": "TD03", "question": "遇到 429 时怎样退避，最多重试多少次？", "recallPercent": 100, "reductionPercent": 66, "effectiveMode": "retrieved", "selectedBlockIds": ["B0006", "B0007", "B0008", "B0022", "B0023", "B0024"], "expectedBlockIds": ["B0007"] },
+        { "id": "TD04", "question": "幂等键会保留多久，重复提交时会发生什么？", "recallPercent": 100, "reductionPercent": 81, "effectiveMode": "retrieved", "selectedBlockIds": ["B0006", "B0008", "B0009", "B0011", "B0012", "B0013"], "expectedBlockIds": ["B0008"] },
+        { "id": "TD05", "question": "哪些失败会进入 dead-letter，死信记录保存什么？", "recallPercent": 100, "reductionPercent": 74, "effectiveMode": "retrieved", "selectedBlockIds": ["B0006", "B0007", "B0008", "B0009", "B0010"], "expectedBlockIds": ["B0010"] },
+        { "id": "TD06", "question": "审计事件默认保留多少天，可配置范围是多少？", "recallPercent": 100, "reductionPercent": 91, "effectiveMode": "retrieved", "selectedBlockIds": ["B0011", "B0012", "B0013"], "expectedBlockIds": ["B0013"] },
+        { "id": "TD07", "question": "持续积压时为什么要同时看 partition_lag 和 oldest_event_age？", "recallPercent": 100, "reductionPercent": 81, "effectiveMode": "retrieved", "selectedBlockIds": ["B0014", "B0015", "B0016", "B0019", "B0020", "B0021"], "expectedBlockIds": ["B0015"] },
+        { "id": "TD08", "question": "结构化日志必须包含哪些字段，又禁止记录哪些敏感内容？", "recallPercent": 100, "reductionPercent": 81, "effectiveMode": "retrieved", "selectedBlockIds": ["B0014", "B0015", "B0016", "B0019", "B0020", "B0021"], "expectedBlockIds": ["B0016"] },
+        { "id": "TD09", "question": "怎样进行无停机签名密钥轮换？", "recallPercent": 100, "reductionPercent": 91, "effectiveMode": "retrieved", "selectedBlockIds": ["B0014", "B0017", "B0018"], "expectedBlockIds": ["B0018"] },
+        { "id": "TD10", "question": "partition_lag 和 oldest_event_age 同时上升时应该如何排查？", "recallPercent": 100, "reductionPercent": 66, "effectiveMode": "retrieved", "selectedBlockIds": ["B0014", "B0015", "B0016", "B0022", "B0023", "B0024"], "expectedBlockIds": ["B0023"] }
+      ]
+    }
+  ]
+}

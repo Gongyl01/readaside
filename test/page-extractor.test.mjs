@@ -82,16 +82,57 @@ test("extractPageContent creates typed blocks with heading paths and locators", 
   assert.equal(result.blocks[1].source.rootKind, "document");
 });
 
-test("extractPageContent filters punctuation-only navigation items but keeps meaningful short lists", () => {
+test("extractPageContent filters list items from structural navigation regions", () => {
   const result = withPage(
-    { innerText: "/\n...\n是\n否\n1%" },
+    { innerText: "Issues\n代码评审\n持续集成\nWiki\n报表" },
     () => {
       const body = globalThis.document.body;
-      const navigation = fakeElement("NAV", "/\n...\n是\n否\n1%", body, {
-        "aria-label": "分页导航"
+      const navigation = fakeElement("NAV", "Issues\n代码评审\n持续集成", body, {
+        "aria-label": "Repository"
       });
-      const items = ["/", "...", "是", "否", "1%"]
-        .map((text) => fakeElement("LI", text, navigation));
+      const tablist = fakeElement("DIV", "Wiki\n报表", body, { role: "tablist" });
+      const items = [
+        ...["Issues", "代码评审", "持续集成"]
+          .map((text) => fakeElement("LI", text, navigation)),
+        ...["Wiki", "报表"].map((text) => fakeElement("LI", text, tablist))
+      ];
+      globalThis.document.querySelectorAll = (selector) => (
+        selector.includes("[role='listitem']") ? items : []
+      );
+      return extractPageContent();
+    }
+  );
+
+  assert.match(result.text, /^Issues\n代码评审/);
+  assert.deepEqual(result.blocks, []);
+});
+
+test("extractPageContent keeps meaningful short lists outside navigation regions", () => {
+  const result = withPage(
+    { innerText: "是\n否\n1%" },
+    () => {
+      const body = globalThis.document.body;
+      const list = fakeElement("UL", "是\n否\n1%", body);
+      const items = ["是", "否", "1%"]
+        .map((text) => fakeElement("LI", text, list));
+      globalThis.document.querySelectorAll = (selector) => (
+        selector.includes("[role='listitem']") ? items : []
+      );
+      return extractPageContent();
+    }
+  );
+
+  assert.deepEqual(result.blocks.map((block) => block.text), ["是", "否", "1%"]);
+  assert.ok(result.blocks.every((block) => block.kind === "list"));
+});
+
+test("extractPageContent filters punctuation-only list noise outside navigation regions", () => {
+  const result = withPage(
+    { innerText: "/\n..." },
+    () => {
+      const body = globalThis.document.body;
+      const list = fakeElement("UL", "/\n...", body);
+      const items = ["/", "..."].map((text) => fakeElement("LI", text, list));
       globalThis.document.querySelectorAll = (selector) => (
         selector.includes("[role='listitem']") ? items : []
       );
@@ -100,8 +141,7 @@ test("extractPageContent filters punctuation-only navigation items but keeps mea
   );
 
   assert.match(result.text, /^\/\n\.\.\./);
-  assert.deepEqual(result.blocks.map((block) => block.text), ["是", "否", "1%"]);
-  assert.ok(result.blocks.every((block) => block.kind === "list"));
+  assert.deepEqual(result.blocks, []);
 });
 
 test("extractPageContent stores simple native table rows and cells", () => {

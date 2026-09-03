@@ -2,19 +2,61 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   AUTO_CONTEXT_CHAR_BUDGET,
+  SMALL_PAGE_FULL_TEXT_THRESHOLD,
   buildContextPlan
 } from "../lib/context-retriever.mjs";
 
-test("automatic context keeps a short page intact", () => {
+test("automatic context sends every structured block for a short page", () => {
   const page = pageWithBlocks([
     block("B0001", "heading", "模型说明"),
     block("B0002", "paragraph", "KDA 是一种注意力机制。", ["模型说明"])
   ]);
   const plan = buildContextPlan({ page, question: "KDA 是什么", mode: "auto" });
 
-  assert.equal(plan.effectiveMode, "full");
-  assert.equal(plan.contextText, page.text);
-  assert.match(plan.reason, /页面只有/);
+  assert.equal(plan.effectiveMode, "structured");
+  assert.match(plan.contextText, /网页内容块 B0001/);
+  assert.match(plan.contextText, /网页内容块 B0002/);
+  assert.deepEqual(plan.selectedBlocks.map((item) => item.id), ["B0001", "B0002"]);
+  assert.match(plan.reason, /全部结构化内容块/);
+});
+
+test("automatic context keeps every structured block within budget even with a selection", () => {
+  const text = filler("需要重点解释的原文片段", SMALL_PAGE_FULL_TEXT_THRESHOLD);
+  const page = pageWithBlocks([
+    block("B0001", "paragraph", text)
+  ]);
+  const plan = buildContextPlan({
+    page,
+    selection: { text: "需要重点解释的原文片段" },
+    question: "这是什么意思",
+    mode: "auto"
+  });
+
+  assert.equal(page.text.length, SMALL_PAGE_FULL_TEXT_THRESHOLD);
+  assert.equal(plan.effectiveMode, "structured");
+  assert.match(plan.contextText, /网页内容块 B0001/);
+  assert.match(plan.contextText, /需要重点解释的原文片段/);
+  assert.equal(plan.reductionPercent, 0);
+});
+
+test("automatic context retrieves blocks once the page exceeds the full-text budget", () => {
+  const page = pageWithBlocks([
+    block(
+      "B0001",
+      "paragraph",
+      filler("目标证据说明", SMALL_PAGE_FULL_TEXT_THRESHOLD + 1)
+    )
+  ]);
+  const plan = buildContextPlan({
+    page,
+    question: "目标证据是什么",
+    mode: "auto"
+  });
+
+  assert.equal(page.text.length, SMALL_PAGE_FULL_TEXT_THRESHOLD + 1);
+  assert.equal(plan.effectiveMode, "retrieved");
+  assert.ok(plan.contextText.length <= AUTO_CONTEXT_CHAR_BUDGET);
+  assert.ok(plan.selectedBlocks.some((item) => item.id === "B0001"));
 });
 
 test("automatic context selects Chinese query matches and nearby blocks", () => {
@@ -155,7 +197,7 @@ test("automatic context uses recent user questions for short follow-ups", () => 
   assert.match(plan.contextText, /KDA 通道门控/);
 });
 
-test("automatic context keeps a whole-page summary intact when it fits the budget", () => {
+test("automatic context sends every structured block for a whole-page summary within budget", () => {
   const blocks = [
     block("B0001", "heading", "第一章"),
     block("B0002", "paragraph", filler("第一章正文", 2_500), ["第一章"]),
@@ -168,8 +210,8 @@ test("automatic context keeps a whole-page summary intact when it fits the budge
     { smallPageThreshold: 100, charBudget: 8_000 }
   );
 
-  assert.equal(plan.effectiveMode, "full");
-  assert.equal(plan.contextText, page.text);
+  assert.equal(plan.effectiveMode, "structured");
+  assert.deepEqual(plan.selectedBlocks.map((item) => item.id), ["B0001", "B0002", "B0003", "B0004"]);
   assert.match(plan.reason, /整页/);
 });
 

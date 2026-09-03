@@ -1,11 +1,12 @@
 import { extractPageContent, mergePageContents } from "./lib/page-extractor.mjs";
-import {
-  BLOCK_CITATION_PROTOCOL,
-  buildEvidenceCardModel,
-  snapshotEvidenceBlocks,
-  validateBlockCitations
-} from "./lib/block-citations.mjs";
 import { buildContextPlan } from "./lib/context-retriever.mjs";
+import {
+  EVIDENCE_REPORT_PROTOCOL,
+  snapshotEvidenceTargets,
+  stripInternalBlockMarkers,
+  validateEvidenceReport
+} from "./lib/evidence-report.mjs";
+import { locatePageEvidence } from "./lib/evidence-locator.mjs";
 import {
   buildContextPreviewModel,
   buildPagePreviewModel
@@ -143,7 +144,7 @@ function handlePortMessage(message) {
     scrollConversationToEnd();
   } else if (message.type === "stream.done") {
     const { question, answer } = state.activeRequest;
-    state.history = appendBoundedHistory(state.history, question, answer);
+    state.history = appendBoundedHistory(state.history, question, stripInternalBlockMarkers(answer));
     updateConversationCount();
     trimConversationMessages();
     finishRequest("回答完成");
@@ -155,6 +156,13 @@ function handlePortMessage(message) {
       state.activeRequest.citations.push(citation);
       renderActiveAnswer(state.activeRequest);
     }
+  } else if (message.type === "stream.evidence") {
+    const validation = validateEvidenceReport(message.report, {
+      targets: state.activeRequest.payload.context?.evidenceTargets
+    });
+    state.activeRequest.evidence = validation.valid;
+    state.activeRequest.rejectedEvidence = validation.rejected;
+    renderEvidenceAction(state.activeRequest);
   } else if (message.type === "stream.error") {
     finishRequest(message.error, true);
   } else if (message.type === "stream.cancelled") {
@@ -270,6 +278,7 @@ async function readCurrentPage() {
     });
     const page = mergePageContents(results);
     if (!page?.text) throw new Error("当前网页没有提取到可读正文。");
+    page.tabId = tab.id;
 
     const pageChanged = state.page?.url && state.page.url !== page.url;
     state.page = page;
@@ -551,6 +560,8 @@ function createBlockTable(tableData) {
   const table = document.createElement("table");
   table.className = "content-block-table";
   const rows = Array.isArray(tableData?.rows) ? tableData.rows : [];
+  const columnCount = rows[0]?.cells?.length || 1;
+  table.style.setProperty("--table-column-count", String(columnCount));
   const firstRowIsHeader = Boolean(rows.length) && rows[0].cells.every((cell) => cell.header);
   const bodyRows = firstRowIsHeader ? rows.slice(1) : rows;
 
@@ -572,6 +583,16 @@ function createBlockTable(tableData) {
 
 function createBlockTableRow(row, columnHeaderRow) {
   const tableRow = document.createElement("tr");
+  if (row.omitted) {
+    tableRow.className = "content-block-table-omission";
+    const tableCell = document.createElement("td");
+    tableCell.colSpan = row.cells.length;
+    tableCell.textContent = row.omittedCount > 0
+      ? `… 中间 ${row.omittedCount} 行已省略 …`
+      : "…";
+    tableRow.append(tableCell);
+    return tableRow;
+  }
   for (const cell of row.cells) {
     const tableCell = document.createElement(cell.header ? "th" : "td");
     if (cell.header) tableCell.scope = columnHeaderRow ? "col" : "row";
@@ -639,9 +660,9 @@ async function startChatRequest(payload, { appendUser = true, assistantElement =
   answerElement.className = "message message-assistant typing";
   const answerBody = document.createElement("div");
   answerBody.className = "assistant-answer-body";
-  const evidenceElement = document.createElement("section");
-  evidenceElement.className = "answer-evidence hidden";
-  evidenceElement.setAttribute("aria-label", "网页证据");
+  const evidenceElement = document.createElement("div");
+  evidenceElement.className = "answer-evidence-action hidden";
+  evidenceElement.setAttribute("aria-label", "原文依据定位");
   answerElement.replaceChildren(answerBody, evidenceElement);
 
   const requestId = crypto.randomUUID();
@@ -650,6 +671,9 @@ async function startChatRequest(payload, { appendUser = true, assistantElement =
     question: payload.question,
     answer: "",
     citations: [],
+    evidence: [],
+    rejectedEvidence: [],
+    evidenceIndex: 0,
     element: answerElement,
     answerBody,
     evidenceElement,
@@ -659,6 +683,8 @@ async function startChatRequest(payload, { appendUser = true, assistantElement =
   setStatus(
     payload.context?.effectiveMode === "retrieved"
       ? `DeepSeek 正在阅读 ${payload.context.selectedBlockCount} 个相关内容块…`
+      : payload.context?.effectiveMode === "structured"
+        ? `DeepSeek 正在阅读全部 ${payload.context.selectedBlockCount} 个内容块…`
       : "DeepSeek 正在阅读完整页面并回答…"
   );
 
@@ -670,7 +696,7 @@ async function startChatRequest(payload, { appendUser = true, assistantElement =
 }
 
 function snapshotRequestPayload(question, contextPlan) {
-  const blockCitationEnabled = contextPlan.effectiveMode === "retrieved" &&
+  const evidenceEnabled = contextPlan.effectiveMode !== "full" &&
     contextPlan.selectedBlocks.length > 0;
   return {
     page: {
@@ -688,15 +714,15 @@ function snapshotRequestPayload(question, contextPlan) {
       totalBlockCount: contextPlan.totalBlockCount,
       selectedBlockCount: contextPlan.selectedBlockCount,
       selectedBlockIds: contextPlan.selectedBlocks.map((block) => block.id),
-      citationProtocol: blockCitationEnabled ? BLOCK_CITATION_PROTOCOL : null,
-      evidenceBlocks: blockCitationEnabled
-        ? snapshotEvidenceBlocks(contextPlan.selectedBlocks)
-        : [],
-      pageBlockIds: blockCitationEnabled
-        ? (Array.isArray(state.page.blocks) ? state.page.blocks : [])
-            .map((block) => String(block?.id || ""))
-            .filter(Boolean)
+      evidenceProtocol: evidenceEnabled ? EVIDENCE_REPORT_PROTOCOL : null,
+      evidenceTargets: evidenceEnabled
+        ? snapshotEvidenceTargets(contextPlan.selectedBlocks)
         : []
+    },
+    pageCapture: {
+      tabId: Number(state.page.tabId),
+      captureId: String(state.page.captureId || ""),
+      url: String(state.page.url || "")
     },
     selection: cloneJsonValue(state.selection),
     history: cloneJsonValue(state.history) || [],
@@ -705,152 +731,80 @@ function snapshotRequestPayload(question, contextPlan) {
 }
 
 function renderActiveAnswer(request) {
-  renderMarkdown(request.answerBody, request.answer, request.citations);
-  request.evidenceElement.classList.add("hidden");
-  request.evidenceElement.replaceChildren();
+  renderMarkdown(request.answerBody, stripInternalBlockMarkers(request.answer), request.citations);
+  renderEvidenceAction(request);
+}
 
-  if (request.payload.context?.citationProtocol !== BLOCK_CITATION_PROTOCOL) return;
-
-  try {
-    const pageBlocks = (Array.isArray(request.payload.context.pageBlockIds)
-      ? request.payload.context.pageBlockIds
-      : []).map((id) => ({ id }));
-    const validation = validateBlockCitations(request.answer, {
-      sentBlocks: request.payload.context.evidenceBlocks,
-      pageBlocks
-    });
-    const cardElements = renderEvidenceCards(
-      request.evidenceElement,
-      buildEvidenceCardModel(validation)
-    );
-    decorateBlockCitationMarkers(request.answerBody, validation, cardElements);
-  } catch {
+function renderEvidenceAction(request) {
+  const evidence = Array.isArray(request.evidence) ? request.evidence : [];
+  if (!evidence.length) {
     request.evidenceElement.classList.add("hidden");
     request.evidenceElement.replaceChildren();
+    return;
+  }
+
+  const index = Math.min(request.evidenceIndex || 0, evidence.length - 1);
+  const button = document.createElement("button");
+  button.className = "evidence-locate-button";
+  button.type = "button";
+  button.textContent = evidence.length === 1
+    ? "查看原文依据"
+    : `查看原文依据 ${index + 1}/${evidence.length}`;
+  button.title = "在当前网页中定位并临时高亮核心证据";
+  button.addEventListener("click", () => locateRequestEvidence(request, button));
+
+  request.evidenceElement.replaceChildren(button);
+  request.evidenceElement.classList.remove("hidden");
+}
+
+async function locateRequestEvidence(request, button) {
+  const evidence = Array.isArray(request.evidence) ? request.evidence : [];
+  if (!evidence.length || button.disabled) return;
+  const index = Math.min(request.evidenceIndex || 0, evidence.length - 1);
+  const item = evidence[index];
+  const capture = request.payload.pageCapture || {};
+  button.disabled = true;
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id || tab.id !== capture.tabId || String(tab.url || "") !== capture.url) {
+      throw new Error("当前标签页已变化，请回到原网页或重新读取页面。");
+    }
+
+    const results = await chrome.scripting.executeScript({
+      target: {
+        tabId: capture.tabId,
+        frameIds: [Number(item.target.source.frameId) || 0]
+      },
+      func: locatePageEvidence,
+      args: [{
+        exactQuote: item.exactQuote,
+        locator: item.target.locator
+      }]
+    });
+    const result = results[0]?.result;
+    if (!result?.ok) throw new Error(describeEvidenceLocationFailure(result?.reason));
+
+    request.evidenceIndex = evidence.length > 1 ? (index + 1) % evidence.length : 0;
+    renderEvidenceAction(request);
+    setStatus(evidence.length > 1
+      ? `已高亮原文依据 ${index + 1}/${evidence.length}，再次点击可查看下一条`
+      : "已在网页中高亮核心依据");
+  } catch (error) {
+    setStatus(String(error?.message || "无法定位这条原文依据。"), true);
+    button.disabled = false;
   }
 }
 
-function renderEvidenceCards(container, model) {
-  const cards = Array.isArray(model?.cards) ? model.cards : [];
-  const invalidCards = Array.isArray(model?.invalidCards) ? model.invalidCards : [];
-  const cardElements = new Map();
-  if (!cards.length && !invalidCards.length) return cardElements;
-
-  const heading = document.createElement("div");
-  heading.className = "answer-evidence-heading";
-  const title = document.createElement("h3");
-  title.textContent = "网页证据";
-  const count = document.createElement("span");
-  count.textContent = invalidCards.length
-    ? `${cards.length} 条有效 · ${invalidCards.length} 条待核验`
-    : `${cards.length} 条`;
-  heading.append(title, count);
-
-  const list = document.createElement("div");
-  list.className = "answer-evidence-list";
-  for (const card of cards) {
-    const element = document.createElement("article");
-    element.className = "answer-evidence-card";
-    element.tabIndex = -1;
-    element.dataset.evidenceBlockId = card.id;
-
-    const header = document.createElement("div");
-    header.className = "answer-evidence-card-header";
-    const id = document.createElement("span");
-    id.className = "answer-evidence-id";
-    id.textContent = card.id;
-    const kind = document.createElement("span");
-    kind.className = "answer-evidence-kind";
-    kind.textContent = card.kindLabel;
-    header.append(id, kind);
-
-    const meta = document.createElement("p");
-    meta.className = "answer-evidence-meta";
-    meta.textContent = `${card.headingLabel} · ${card.sourceLabel}`;
-
-    const excerpt = document.createElement("p");
-    excerpt.className = "answer-evidence-excerpt";
-    excerpt.textContent = card.excerpt || "该内容块没有可展示的摘录。";
-
-    element.append(header, meta, excerpt);
-    list.append(element);
-    cardElements.set(card.id, element);
-  }
-
-  for (const card of invalidCards) {
-    const warning = document.createElement("div");
-    warning.className = "answer-evidence-warning";
-    const label = document.createElement("strong");
-    label.textContent = `${card.id} 未通过本地校验`;
-    const reason = document.createElement("span");
-    reason.textContent = card.reason;
-    warning.append(label, reason);
-    list.append(warning);
-  }
-
-  container.replaceChildren(heading, list);
-  container.classList.remove("hidden");
-  return cardElements;
-}
-
-function decorateBlockCitationMarkers(container, validation, cardElements) {
-  const referencesById = new Map(
-    (Array.isArray(validation?.references) ? validation.references : [])
-      .map((reference) => [reference.id, reference])
-  );
-  if (!referencesById.size) return;
-
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      const parent = node.parentElement;
-      if (!parent || parent.closest("code, pre, a, .block-citation")) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return /\[B\d{4,}\]/.test(node.nodeValue || "")
-        ? NodeFilter.FILTER_ACCEPT
-        : NodeFilter.FILTER_REJECT;
-    }
-  });
-  const textNodes = [];
-  while (walker.nextNode()) textNodes.push(walker.currentNode);
-
-  for (const textNode of textNodes) {
-    const value = textNode.nodeValue || "";
-    const fragment = document.createDocumentFragment();
-    let cursor = 0;
-
-    for (const match of value.matchAll(/\[(B\d{4,})\]/g)) {
-      if (match.index > cursor) fragment.append(value.slice(cursor, match.index));
-      const reference = referencesById.get(match[1]);
-      if (!reference) {
-        fragment.append(match[0]);
-      } else if (reference.status === "valid") {
-        const marker = document.createElement("button");
-        marker.className = "block-citation block-citation-valid";
-        marker.type = "button";
-        marker.textContent = match[0];
-        marker.setAttribute("aria-label", `查看网页证据 ${reference.id}`);
-        marker.title = `查看网页证据 ${reference.id}`;
-        marker.addEventListener("click", () => {
-          const card = cardElements.get(reference.id);
-          card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          card?.focus({ preventScroll: true });
-        });
-        fragment.append(marker);
-      } else {
-        const marker = document.createElement("span");
-        marker.className = "block-citation block-citation-invalid";
-        marker.textContent = match[0];
-        marker.title = reference.reason;
-        marker.setAttribute("aria-label", `${reference.id} 未通过本地校验：${reference.reason}`);
-        fragment.append(marker);
-      }
-      cursor = match.index + match[0].length;
-    }
-
-    if (cursor < value.length) fragment.append(value.slice(cursor));
-    textNode.replaceWith(fragment);
-  }
+function describeEvidenceLocationFailure(reason) {
+  const messages = {
+    empty_quote: "模型没有返回可定位的原文。",
+    shadow_host_missing: "网页结构已经变化，找不到原来的组件。",
+    shadow_root_closed: "原文位于当前无法访问的封闭组件中。",
+    quote_missing: "网页内容已经变化，找不到这条原文。",
+    ambiguous_quote: "网页中存在多处相同文字，无法安全确定原位置。"
+  };
+  return messages[reason] || "无法安全定位这条原文依据。";
 }
 
 function cloneJsonValue(value) {

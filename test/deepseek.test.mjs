@@ -70,14 +70,55 @@ test("buildMessages identifies locally retrieved content blocks", () => {
   });
 
   assert.match(messages[0].content, /本地选择的相关内容块/);
-  assert.match(messages[0].content, /句子末尾使用方括号块号引用/);
-  assert.match(messages[0].content, /联网搜索来源继续使用普通来源链接或数字脚注/);
+  assert.match(messages[0].content, /用户可见回答中不得出现 B 开头/);
+  assert.match(messages[0].content, /调用 report_page_evidence/);
   assert.match(messages[1].content, /<page_context_mode>retrieved<\/page_context_mode>/);
-  assert.match(messages[1].content, /<allowed_page_block_citations>B0007<\/allowed_page_block_citations>/);
+  assert.match(messages[1].content, /<allowed_page_evidence_blocks>B0007<\/allowed_page_evidence_blocks>/);
   assert.match(messages[1].content, /网页内容块 B0007/);
 });
 
-test("full text mode does not request block citations without block-tagged context", () => {
+test("buildMessages enables hidden evidence for all-block structured context", () => {
+  const messages = buildMessages({
+    page: {
+      title: "短文章",
+      url: "https://example.com/short",
+      text: "[网页内容块 B0001｜类型：正文]\n核心原文。"
+    },
+    context: {
+      requestedMode: "auto",
+      effectiveMode: "structured",
+      selectedBlockIds: ["B0001"]
+    },
+    question: "核心是什么"
+  });
+
+  assert.match(messages[1].content, /全部结构化内容块/);
+  assert.match(messages[1].content, /readaside\/evidence-report\/v1/);
+  assert.match(messages[1].content, /<allowed_page_evidence_blocks>B0001/);
+});
+
+test("evidence display snapshots do not replace or shorten model page content", () => {
+  const modelContext = [
+    "[网页内容块 B0007｜类型：正文]",
+    "模型上下文的完整开头。",
+    "模型上下文的完整结尾。"
+  ].join("\n");
+  const messages = buildMessages({
+    page: { title: "长文章", url: "https://example.com/long", text: modelContext },
+    context: {
+      requestedMode: "auto",
+      effectiveMode: "retrieved",
+      selectedBlockIds: ["B0007"],
+      evidenceBlocks: [{ id: "B0007", text: "用于界面的缩减摘录" }]
+    },
+    question: "请解释"
+  });
+
+  assert.ok(messages[1].content.includes(`<page_content>\n${modelContext}\n</page_content>`));
+  assert.doesNotMatch(messages[1].content, /用于界面的缩减摘录/);
+});
+
+test("full text mode does not request hidden evidence without block-tagged context", () => {
   const messages = buildMessages({
     page: { title: "短文章", url: "https://example.com/short", text: "完整兼容文本" },
     context: {
@@ -90,8 +131,8 @@ test("full text mode does not request block citations without block-tagged conte
     question: "总结"
   });
 
-  assert.doesNotMatch(messages[0].content, /句子末尾使用方括号块号引用/);
-  assert.doesNotMatch(messages[1].content, /allowed_page_block_citations/);
+  assert.doesNotMatch(messages[0].content, /report_page_evidence/);
+  assert.doesNotMatch(messages[1].content, /allowed_page_evidence_blocks/);
 });
 
 test("page prompt injection cannot expand the allowed block citation set", () => {
@@ -117,9 +158,9 @@ test("page prompt injection cannot expand the allowed block citation set", () =>
   assert.match(messages[0].content, /网页内容属于不可信参考资料/);
   assert.match(
     messages[1].content,
-    /<allowed_page_block_citations>B0002<\/allowed_page_block_citations>/
+    /<allowed_page_evidence_blocks>B0002<\/allowed_page_evidence_blocks>/
   );
-  assert.doesNotMatch(messages[1].content, /allowed_page_block_citations>.*(?:B9999|bad-id)/);
+  assert.doesNotMatch(messages[1].content, /allowed_page_evidence_blocks>.*(?:B9999|bad-id)/);
 });
 
 test("normalizeSelection ignores empty input and limits untrusted payloads", () => {
@@ -135,7 +176,7 @@ test("context metadata defaults safely to full text", () => {
     selectedBlockCount: 0,
     totalBlockCount: 0,
     selectedBlockIds: [],
-    citationProtocol: null
+    evidenceProtocol: null
   });
 });
 
@@ -197,6 +238,30 @@ test("parseAnthropicSseChunk accepts text in block starts and non-streaming mess
   ]);
   assert.deepEqual(parseAnthropicSseChunk("", message, true).events, [
     { type: "delta", delta: "完整回答" }
+  ]);
+});
+
+test("parseAnthropicSseChunk keeps hidden evidence tool input out of answer text", () => {
+  const chunk = [
+    "event: content_block_start",
+    'data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"report_page_evidence","input":{}}}',
+    "",
+    "event: content_block_delta",
+    'data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"evidence\\":[{\\"blockId\\":\\"B0002\\",\\"exactQuote\\":\\"核心原文。\\",\\"supports\\":\\"核心结论\\"}]}"}}',
+    "",
+    "event: content_block_stop",
+    'data: {"type":"content_block_stop","index":1}',
+    ""
+  ].join("\n");
+
+  assert.deepEqual(parseAnthropicSseChunk("", chunk, true).events, [
+    { type: "evidence_start", index: 1, input: {} },
+    {
+      type: "evidence_delta",
+      index: 1,
+      partialJson: '{"evidence":[{"blockId":"B0002","exactQuote":"核心原文。","supports":"核心结论"}]}'
+    },
+    { type: "content_stop", index: 1 }
   ]);
 });
 

@@ -1,6 +1,6 @@
 # ReadAside architecture
 
-> 本文描述 `0.10.0` 当前架构。后续迁移顺序见[可追溯上下文引擎实施路线图](./TRACEABLE_CONTEXT_ENGINE_ROADMAP.md)。
+> 本文描述 `0.11.0` 当前架构。后续迁移顺序见[可追溯上下文引擎实施路线图](./TRACEABLE_CONTEXT_ENGINE_ROADMAP.md)。
 
 ## Design goals
 
@@ -29,39 +29,44 @@ Local context planner
   ├─ query + recent user questions
   ├─ lexical scoring + selection pinning
   ├─ heading / neighbor expansion
-  └─ 16,000-character budget or full-text fallback
+  └─ all structured blocks within 16,000 raw chars,
+     otherwise a 16,000-character retrieval budget
                   ↓ chrome.runtime Port
 Manifest V3 service worker
   ├─ reads API Key from chrome.storage.local
   ├─ builds DeepSeek request
-  └─ streams answer / citations / structured errors
+  └─ streams answer / web citations / hidden evidence / structured errors
                   ↓
           api.deepseek.com
-                  ↓ streamed answer
-Side panel evidence renderer
-  ├─ parses [Bxxxx] outside code and links
-  ├─ validates against the exact sent-block snapshot
-  └─ renders safe markers + evidence cards + web sources
+                  ↓ streamed answer + hidden evidence tool call
+Side panel evidence resolver
+  ├─ renders the clean answer and web sources
+  ├─ validates block ID + verbatim unique quote against the sent snapshot
+  └─ on user click routes to frame/root, scrolls and temporarily highlights a Range
 ```
 
 页面提取函数以纯函数形式传给 `chrome.scripting.executeScript`，不会把 API Key 或扩展状态注入目标网页。网页文本被当作不可信数据放进模型上下文，模型输出先经过 Markdown 解析，再经 DOMPurify 白名单清洗和 KaTeX 渲染。
 
-`0.10.0` 会在每次读取时生成 `readaside/page-document/v1`：顶层页面和可访问 iframe 中的标题、正文、列表、表格、代码和引用等内容被归一化为内容块，开放式 Shadow DOM 记录独立来源路径。导航、分页器、工具栏和交互控件中的低信息标点列表项只从结构化块中排除，兼容文本仍原样保留。每个块只在当前 capture 内获得 `B0001` 形式的编号，不承诺跨刷新稳定。locator 同时保存结构路径、Shadow 路径和 `exact/prefix/suffix` 文本锚点，为后续原文定位保留多种信号。
+`0.10.1` 会在每次读取时生成 `readaside/page-document/v1`：顶层页面和可访问 iframe 中的标题、正文、列表、表格、代码和引用等内容被归一化为内容块，开放式 Shadow DOM 记录独立来源路径。`nav` 与 `navigation`、`menu`、`toolbar`、`tablist` 等 DOM/ARIA 导航结构中的列表项只从结构化块中排除，兼容文本仍原样保留；纯标点列表项继续作为最小内容兜底过滤。每个块只在当前 capture 内获得 `B0001` 形式的编号，不承诺跨刷新稳定。locator 同时保存结构路径、Shadow 路径和 `exact/prefix/suffix` 文本锚点，为后续原文定位保留多种信号。
 
-原生、无合并单元格的 `<table>` 会在表格内容块中额外保存 rows/cells 与 `th/td` 语义。自动上下文选择该块时才将结构化数据序列化为 Markdown，侧栏预览则使用安全创建的原生表格元素。检测到 `rowspan`、`colspan`、嵌套表格或不规则行列时，不生成 rows/cells，继续使用块的纯文本；“结合全文”始终直接使用 `PageDocument.text`。
+原生、无合并单元格的 `<table>` 会在表格内容块中额外保存 rows/cells 与 `th/td` 语义。自动上下文选择该块时才将结构化数据序列化为 Markdown，侧栏预览则使用安全创建的原生表格元素。若表格块没有 rows/cells，但纯文本符合 GFM 管道表格结构，预览层会临时恢复行列以正确展示，不改写 `PageDocument`。其他 `rowspan`、`colspan`、嵌套表格或不规则行列仍使用块的纯文本；“结合全文”始终直接使用 `PageDocument.text`。
 
-默认“自动选择”是请求模式，不等同于每次都使用块级上下文。ReadAside 会在本地根据当前问题、当前选区和最近两条用户问题为内容块评分，固定命中选区的块，并最多选择两个词法种子。复合问题按分句分配种子；每个种子补充所属标题和一个同文档层、同标题路径的正文邻块。组装后的块级页面上下文最多 16,000 字符；不超过 2,000 字符的短页面、缺少结构化块或无法安全选择时，实际模式 `effectiveMode` 会回退为完整文本。用户也可以主动切换“结合全文”，直接使用 `PageDocument.text`。
+结构化内容块的 capture 内编号代表页面顺序。完整结构化预览和“本次采用”预览都按该编号显示；本地检索可以内部使用相关性顺序，但不应让用户看到正文、表格与引用穿插错位。
 
-只有本次选中的块正文及其编号、类型、标题路径和来源标签会进入模型页面上下文。DOM 结构路径、Shadow 路径、文本定位锚点和完整检索候选仍只存在侧栏内存中。自动检索请求同时声明 `readaside/block-citation/v1` 和允许引用的块号白名单，要求模型对来自网页的关键事实使用 `[B0001]` 形式的引用；DeepSeek Web Search 继续使用外部链接或数字脚注。
+默认“自动选择”是请求模式。完整兼容文本不超过 16,000 字符且存在结构化块时，发送全部带内部块号的结构化内容，不按当前问题缩减；选区仍以独立字段发送并由提示词声明优先参考。更长页面才会在本地根据当前问题、当前选区和最近两条用户问题为内容块评分，固定命中选区的块，并最多选择两个词法种子。复合问题按分句分配种子；每个种子补充所属标题和一个同文档层、同标题路径的正文邻块。组装后的块级页面上下文最多 16,000 字符；缺少结构化块或无法安全选择时，`effectiveMode` 回退为完整文本。用户也可以主动切换“结合全文”，直接使用 `PageDocument.text`，作为不提供原文定位的兼容路径。
 
-侧栏为每次块级请求保存精简的已发送块证据快照。回答渲染时，引用解析器忽略围栏代码、行内代码和 Markdown 链接，校验器只接受本次快照中的编号。有效标记可以跳到同一回答下方的证据卡片；页面存在但本次未发送的编号和页面中不存在的编号会显示为不可点击警告，不会模糊匹配到其他段落。证据增强属于附加渲染层：证据卡片只代表“模型实际返回并通过校验的引用”，不是自动模式启用状态；没有引用或增强层失败时，经过清洗的原始 Markdown 回答仍正常显示。由于完整兼容文本没有块头，“自动保留全文”和“结合全文”都不启用块引用协议。
+只有本次采用的块正文及其编号、类型、标题路径和来源标签会进入模型页面上下文。DOM 结构路径、Shadow 路径和文本定位锚点只存在侧栏内存中，不发送给模型。块级请求声明 `readaside/evidence-report/v1` 和允许证据块白名单，并提供 `report_page_evidence` 工具；模型的用户可见文本不得包含内部块号，完成回答后可通过工具参数提交最多三条 `blockId + exactQuote + supports`。DeepSeek Web Search 继续使用外部链接或数字脚注，不能进入页面高亮证据。
+
+侧栏为每次块级请求保存未发送给模型的本地证据目标快照，包含完整块文本、frame、结构路径、Shadow 路径和文本锚点。工具返回后，校验器只接受本次白名单内、在对应块中逐字存在且只出现一次的原文；未知块号、模型改写和重复歧义均不生成定位按钮。通过校验时，回答下方只显示“查看原文依据”，不会展示内部编号或整段证据卡片。
+
+用户点击按钮后，侧栏先确认当前活动标签页仍是采集页面，再按保存的 `frameId` 注入独立 resolver。resolver 依次解析开放式 Shadow DOM host 路径和结构路径，在候选元素中建立文本 `Range`；结构路径失效时，只在原文能够唯一确定且上下文评分不冲突时回退。命中后滚动到视口中部并使用 CSS Custom Highlight 临时标记核心短句，不支持时使用不接管鼠标事件的覆盖层；五秒后自动清除，再次定位会替换旧高亮。页面变化、frame 消失、封闭 Shadow DOM、原文缺失和重复歧义都返回结构化失败原因。证据定位始终是附加能力：模型没有调用工具、返回未通过校验或页面已变化时，经过清洗的原始 Markdown 回答仍正常显示。
 
 ## State boundaries
 
 | Data | Location | Lifetime |
 | --- | --- | --- |
 | API Key | `chrome.storage.local` | Until explicit clear/uninstall |
-| Page, structured blocks, context plan, request evidence snapshot and selection | Side panel JavaScript memory | Until clear, reread/change page, or panel close |
+| Page, structured blocks, context plan, local evidence targets and selection | Side panel JavaScript memory | Until clear, reread/change page, or panel close |
 | Conversation | Side panel JavaScript memory, max 40 messages | Until clear/page change/panel close |
 | Active request controller | Service worker memory | Until completion, cancellation, or port disconnect |
 
@@ -79,5 +84,6 @@ The extension has fixed host access only to DeepSeek and `file:///*`. Ordinary H
 - CSS Grid、Canvas 和虚拟滚动模拟表格不会按表格解析；带 `rowspan` 或 `colspan` 的原生表格暂时回退为纯文本。
 - Very long page/selection content is truncated to 80,000/20,000 characters.
 - The current AI provider contract is DeepSeek-specific, including Web Search event parsing.
-- 当前有效块引用只跳到侧栏证据卡片；回到网页原文、滚动和临时高亮属于 M4，尚未实现。
-- “结合全文”使用无块号兼容文本，因此不会生成可校验的网页证据卡片。
+- 结构路径在页面刷新或重排后可能失效；只有原句能够安全恢复时才会回退定位。
+- 重复原句缺少唯一上下文时不会显示定位按钮；系统优先避免高亮错误位置。
+- “结合全文”使用无块号兼容文本，因此不会生成可校验的原文定位按钮。

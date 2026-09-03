@@ -7,6 +7,11 @@ import {
   readApiErrorDetails
 } from "./lib/deepseek.mjs";
 import { createRequestError, serializeRequestError } from "./lib/request-error.mjs";
+import {
+  EVIDENCE_REPORT_PROTOCOL,
+  buildEvidenceReportTool,
+  normalizeEvidenceReport
+} from "./lib/evidence-report.mjs";
 
 const KEY_STORAGE_NAME = "deepseekApiKey";
 
@@ -105,6 +110,15 @@ async function streamChat(port, requestId, payload, signal) {
   if (!key) throw new Error("请先在设置中保存 DeepSeek API Key。");
 
   const conversation = buildAnthropicPayload(payload);
+  const evidenceEnabled = payload?.context?.evidenceProtocol === EVIDENCE_REPORT_PROTOCOL;
+  const tools = [
+    {
+      type: "web_search_20250305",
+      name: "web_search",
+      max_uses: 3
+    },
+    ...(evidenceEnabled ? [buildEvidenceReportTool()] : [])
+  ];
   let response;
   try {
     response = await fetch(DEEPSEEK_ANTHROPIC_MESSAGES_URL, {
@@ -120,13 +134,7 @@ async function streamChat(port, requestId, payload, signal) {
         messages: conversation.messages,
         thinking: { type: "disabled" },
         max_tokens: 2048,
-        tools: [
-          {
-            type: "web_search_20250305",
-            name: "web_search",
-            max_uses: 3
-          }
-        ],
+        tools,
         tool_choice: { type: "auto" },
         stream: true
       }),
@@ -163,36 +171,10 @@ async function streamChat(port, requestId, payload, signal) {
   let buffer = "";
   let receivedContent = false;
   let searchAnnounced = false;
+  let evidenceReported = false;
+  const evidenceBuffers = new Map();
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    const parsed = parseAnthropicSseChunk(buffer, decoder.decode(value, { stream: true }));
-    buffer = parsed.buffer;
-    for (const event of parsed.events) {
-      if (event.type === "delta") {
-        receivedContent = true;
-        safePost(port, { type: "stream.delta", requestId, delta: event.delta });
-      } else if (event.type === "search" && !searchAnnounced) {
-        searchAnnounced = true;
-        safePost(port, { type: "stream.search", requestId });
-      } else if (event.type === "citation") {
-        safePost(port, { type: "stream.citation", requestId, citation: event.citation });
-      } else if (event.type === "error") {
-        throw createRequestError({
-          code: "provider_stream",
-          category: "provider",
-          message: event.error,
-          advice: "DeepSeek 在生成过程中返回错误，请稍后手动重新发送。",
-          retryable: true
-        });
-      }
-    }
-  }
-
-  const finalParsed = parseAnthropicSseChunk(buffer, decoder.decode(), true);
-  for (const event of finalParsed.events) {
+  function handleStreamEvent(event) {
     if (event.type === "delta") {
       receivedContent = true;
       safePost(port, { type: "stream.delta", requestId, delta: event.delta });
@@ -201,6 +183,26 @@ async function streamChat(port, requestId, payload, signal) {
       safePost(port, { type: "stream.search", requestId });
     } else if (event.type === "citation") {
       safePost(port, { type: "stream.citation", requestId, citation: event.citation });
+    } else if (event.type === "evidence_start") {
+      evidenceBuffers.set(event.index, {
+        json: "",
+        input: event.input
+      });
+    } else if (event.type === "evidence_delta") {
+      const buffer = evidenceBuffers.get(event.index);
+      if (buffer) buffer.json += event.partialJson;
+    } else if (event.type === "content_stop") {
+      const evidenceBuffer = evidenceBuffers.get(event.index);
+      if (!evidenceBuffer || evidenceReported) return;
+      evidenceBuffers.delete(event.index);
+      const report = parseEvidenceToolInput(evidenceBuffer);
+      if (report) {
+        evidenceReported = true;
+        safePost(port, { type: "stream.evidence", requestId, report });
+      }
+    } else if (event.type === "evidence_report" && !evidenceReported) {
+      evidenceReported = true;
+      safePost(port, { type: "stream.evidence", requestId, report: event.report });
     } else if (event.type === "error") {
       throw createRequestError({
         code: "provider_stream",
@@ -211,6 +213,18 @@ async function streamChat(port, requestId, payload, signal) {
       });
     }
   }
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const parsed = parseAnthropicSseChunk(buffer, decoder.decode(value, { stream: true }));
+    buffer = parsed.buffer;
+    for (const event of parsed.events) handleStreamEvent(event);
+  }
+
+  const finalParsed = parseAnthropicSseChunk(buffer, decoder.decode(), true);
+  for (const event of finalParsed.events) handleStreamEvent(event);
 
   if (!receivedContent && searchAnnounced) {
     throw createRequestError({
@@ -231,6 +245,20 @@ async function streamChat(port, requestId, payload, signal) {
     });
   }
   safePost(port, { type: "stream.done", requestId });
+}
+
+function parseEvidenceToolInput(buffer) {
+  if (buffer?.json) {
+    try {
+      return normalizeEvidenceReport(JSON.parse(buffer.json));
+    } catch {
+      return null;
+    }
+  }
+  if (buffer?.input && typeof buffer.input === "object") {
+    return normalizeEvidenceReport(buffer.input);
+  }
+  return null;
 }
 
 async function testApiKey(key) {

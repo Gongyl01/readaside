@@ -1,7 +1,10 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildContextPlan } from "../lib/context-retriever.mjs";
+import {
+  SMALL_PAGE_FULL_TEXT_THRESHOLD,
+  buildContextPlan
+} from "../lib/context-retriever.mjs";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const evaluationDirectory = resolve(projectRoot, "test/evaluation");
@@ -9,6 +12,7 @@ const packageJson = JSON.parse(await readFile(resolve(projectRoot, "package.json
 const timingRuns = 30;
 const scaleBlockCount = 2_000;
 const scaleP95ThresholdMilliseconds = 100;
+const longPageTargetChars = SMALL_PAGE_FULL_TEXT_THRESHOLD + 8_000;
 const enforceThresholds = process.argv.includes("--enforce");
 const markdownOutput = process.argv.includes("--markdown");
 const jsonOutput = process.argv.includes("--json");
@@ -61,7 +65,8 @@ async function evaluateDataset(datasetFile) {
   );
   if (fixture.html) await access(resolve(dirname(fixtureFile), fixture.html));
 
-  const page = buildFixturePage(fixture);
+  const shortPage = buildFixturePage(fixture);
+  const page = buildLongFixturePage(shortPage);
   const seenCaseIds = new Set();
   const cases = [];
   const durationSamples = [];
@@ -74,10 +79,11 @@ async function evaluateDataset(datasetFile) {
     seenCaseIds.add(caseId);
 
     const expectedBlockIds = resolveEvidenceBlocks(
-      page.blocks,
+      shortPage.blocks,
       evaluationCase.evidenceQuotes,
       caseId
     );
+    const shortPlan = buildContextPlan({ page: shortPage, question, mode: "auto" });
     const plan = buildContextPlan({ page, question, mode: "auto" });
     for (let run = 0; run < timingRuns; run += 1) {
       const startedAt = performance.now();
@@ -87,6 +93,8 @@ async function evaluateDataset(datasetFile) {
 
     const selectedBlockIds = new Set(plan.trace.selectedBlockIds);
     const matchedBlockIds = expectedBlockIds.filter((id) => selectedBlockIds.has(id));
+    const shortSelectedBlockIds = new Set(shortPlan.trace.selectedBlockIds);
+    const shortMatchedBlockIds = expectedBlockIds.filter((id) => shortSelectedBlockIds.has(id));
     cases.push({
       id: caseId,
       question,
@@ -97,7 +105,13 @@ async function evaluateDataset(datasetFile) {
       reductionPercent: plan.reductionPercent,
       effectiveMode: plan.effectiveMode,
       sentChars: plan.sentChars,
-      selectedBlockCount: plan.selectedBlockCount
+      selectedBlockCount: plan.selectedBlockCount,
+      shortPage: {
+        effectiveMode: shortPlan.effectiveMode,
+        sentChars: shortPlan.sentChars,
+        matchedBlockIds: shortMatchedBlockIds,
+        recallPercent: percent(shortMatchedBlockIds.length, expectedBlockIds.length)
+      }
     });
   }
 
@@ -115,11 +129,30 @@ async function evaluateDataset(datasetFile) {
     cases.map((item) => item.reductionPercent),
     50
   );
+  const shortExpectedCount = expectedCount;
+  const shortMatchedCount = cases.reduce(
+    (total, item) => total + item.shortPage.matchedBlockIds.length,
+    0
+  );
+  const shortCompleteContextCount = cases.filter(
+    (item) => item.shortPage.effectiveMode === "structured"
+  ).length;
+  const shortPageResult = {
+    pageChars: shortPage.text.length,
+    expectedCount: shortExpectedCount,
+    matchedCount: shortMatchedCount,
+    recallPercent: percent(shortMatchedCount, shortExpectedCount),
+    completeContextCount: shortCompleteContextCount,
+    passed:
+      shortCompleteContextCount === cases.length &&
+      shortMatchedCount === shortExpectedCount
+  };
 
   return {
     dataset: relative(projectRoot, datasetFile),
     fixture: relative(projectRoot, fixtureFile),
     fixtureId: String(fixture.id || "unknown"),
+    shortPage: shortPageResult,
     pageChars: page.text.length,
     blockCount: page.blocks.length,
     sourceLayerCount: new Set(page.blocks.map(sourceLayerKey)).size,
@@ -133,6 +166,7 @@ async function evaluateDataset(datasetFile) {
     durationSamples,
     thresholds,
     passed:
+      shortPageResult.passed &&
       recallPercent >= thresholds.recallPercent &&
       medianReductionPercent >= thresholds.medianReductionPercent,
     cases
@@ -191,6 +225,36 @@ function buildFixturePage(fixture) {
     title: String(fixture.title || "评测夹具"),
     url: String(fixture.url || ""),
     text: [...compatibilityPrefix, ...blocks.map((block) => block.text)].join("\n\n"),
+    blocks,
+    evaluationCompatibilityPrefix: compatibilityPrefix.join("\n\n")
+  };
+}
+
+function buildLongFixturePage(page) {
+  if (page.text.length > SMALL_PAGE_FULL_TEXT_THRESHOLD) return page;
+  const blocks = page.blocks.map((block) => ({ ...block }));
+  const expandableIndexes = blocks
+    .map((block, index) => block.kind === "paragraph" ? index : -1)
+    .filter((index) => index >= 0);
+  assert(expandableIndexes.length, `${page.title} 缺少可扩成长页的正文块`);
+
+  const remainingChars = Math.max(0, longPageTargetChars - page.text.length);
+  const paddingPerBlock = Math.ceil(remainingChars / expandableIndexes.length);
+  for (const index of expandableIndexes) {
+    const paddingSeed = `benchmarkpadding${index + 1} loremipsumdolorsitamet `;
+    const padding = paddingSeed
+      .repeat(Math.ceil(paddingPerBlock / paddingSeed.length))
+      .slice(0, paddingPerBlock);
+    blocks[index].text = `${blocks[index].text}\n\n${padding}`;
+  }
+
+  const prefix = String(page.evaluationCompatibilityPrefix || "").trim();
+  const text = [prefix, ...blocks.map((block) => block.text)].filter(Boolean).join("\n\n");
+  assert(text.length > SMALL_PAGE_FULL_TEXT_THRESHOLD, `${page.title} 长页夹具未超过全文阈值`);
+  return {
+    ...page,
+    captureId: `${page.captureId}-long`,
+    text,
     blocks
   };
 }
@@ -215,6 +279,19 @@ function summarizeResults(datasets) {
   const matchedCount = datasets.reduce((total, item) => total + item.matchedCount, 0);
   const cases = datasets.flatMap((item) => item.cases);
   const scaleBenchmark = evaluateScaleBenchmark();
+  const shortExpectedCount = datasets.reduce(
+    (total, item) => total + item.shortPage.expectedCount,
+    0
+  );
+  const shortMatchedCount = datasets.reduce(
+    (total, item) => total + item.shortPage.matchedCount,
+    0
+  );
+  const shortQuestionCount = datasets.reduce((total, item) => total + item.questionCount, 0);
+  const shortCompleteContextCount = datasets.reduce(
+    (total, item) => total + item.shortPage.completeContextCount,
+    0
+  );
   return {
     version: String(packageJson.version),
     generatedAt: new Date().toISOString().slice(0, 10),
@@ -232,6 +309,14 @@ function summarizeResults(datasets) {
       datasets.flatMap((item) => item.durationSamples),
       95
     ),
+    shortPage: {
+      questionCount: shortQuestionCount,
+      expectedCount: shortExpectedCount,
+      matchedCount: shortMatchedCount,
+      recallPercent: percent(shortMatchedCount, shortExpectedCount),
+      completeContextCount: shortCompleteContextCount,
+      passed: datasets.every((item) => item.shortPage.passed)
+    },
     scaleBenchmark,
     passed:
       datasets.every((item) => item.passed) &&
@@ -251,6 +336,7 @@ function createSnapshot(report) {
       recallPercent: report.recallPercent,
       medianReductionPercent: report.medianReductionPercent,
       fallbackCount: report.fallbackCount,
+      shortPage: report.shortPage,
       passed: report.passed
     },
     scaleBenchmark: {
@@ -263,6 +349,7 @@ function createSnapshot(report) {
       fixtureId: dataset.fixtureId,
       dataset: dataset.dataset,
       fixture: dataset.fixture,
+      shortPage: dataset.shortPage,
       pageChars: dataset.pageChars,
       blockCount: dataset.blockCount,
       sourceLayerCount: dataset.sourceLayerCount,
@@ -419,10 +506,11 @@ function evaluateScaleBenchmark() {
 function renderConsole(report) {
   const lines = [
     `ReadAside ${report.version} 上下文离线评测`,
-    `数据集：${report.datasets.length} · 问题：${report.questionCount}`,
-    `证据召回：${formatPercent(report.recallPercent)} (${report.matchedCount}/${report.expectedCount})`,
-    `上下文缩减中位数：${formatPercent(report.medianReductionPercent)}`,
-    `自动回退全文：${report.fallbackCount}/${report.questionCount}`,
+    `数据集：${report.datasets.length} · 每组问题：${report.questionCount}`,
+    `短页完整性：${report.shortPage.completeContextCount}/${report.shortPage.questionCount} 发送全部结构化内容块 · 证据 ${report.shortPage.matchedCount}/${report.shortPage.expectedCount}`,
+    `长页检索证据召回：${formatPercent(report.recallPercent)} (${report.matchedCount}/${report.expectedCount})`,
+    `长页上下文缩减中位数：${formatPercent(report.medianReductionPercent)}`,
+    `长页自动回退全文：${report.fallbackCount}/${report.questionCount}`,
     `本地检索与组装 p95：${report.p95Milliseconds.toFixed(3)} ms`,
     `${formatNumber(report.scaleBenchmark.blockCount)} 块压力测试 p95：${report.scaleBenchmark.p95Milliseconds.toFixed(3)} ms`,
     `目标状态：${report.passed ? "达到当前门槛" : "尚未达到当前门槛"}`
@@ -431,7 +519,8 @@ function renderConsole(report) {
   for (const dataset of report.datasets) {
     lines.push(
       "",
-      `${dataset.fixtureId} · ${dataset.pageChars} 字符 · ${dataset.blockCount} 块 · ${dataset.sourceLayerCount} 个来源层`,
+      `${dataset.fixtureId} · 短页 ${dataset.shortPage.pageChars} 字符 / 长页 ${dataset.pageChars} 字符 · ${dataset.blockCount} 块 · ${dataset.sourceLayerCount} 个来源层`,
+      `短页：${dataset.shortPage.completeContextCount}/${dataset.questionCount} 发送全部结构化内容块 · 证据召回 ${formatPercent(dataset.shortPage.recallPercent)}`,
       "ID    Recall  Reduce  Mode       Selected / Expected"
     );
     for (const item of dataset.cases) {
@@ -453,10 +542,11 @@ function renderMarkdown(report) {
     "",
     `- 日期：${report.generatedAt}`,
     `- 数据集：${report.datasets.length}`,
-    `- 问题：${report.questionCount}`,
-    `- 证据召回：${formatPercent(report.recallPercent)}（${report.matchedCount}/${report.expectedCount}）`,
-    `- 上下文缩减中位数：${formatPercent(report.medianReductionPercent)}`,
-    `- 自动回退全文：${report.fallbackCount}/${report.questionCount}`,
+    `- 每组问题：${report.questionCount}`,
+    `- 短页完整性：${report.shortPage.completeContextCount}/${report.shortPage.questionCount} 发送全部结构化内容块，证据召回 ${formatPercent(report.shortPage.recallPercent)}（${report.shortPage.matchedCount}/${report.shortPage.expectedCount}）`,
+    `- 长页检索证据召回：${formatPercent(report.recallPercent)}（${report.matchedCount}/${report.expectedCount}）`,
+    `- 长页上下文缩减中位数：${formatPercent(report.medianReductionPercent)}`,
+    `- 长页自动回退全文：${report.fallbackCount}/${report.questionCount}`,
     `- 本地检索与组装 p95：${report.p95Milliseconds.toFixed(3)} ms`,
     `- ${formatNumber(report.scaleBenchmark.blockCount)} 块压力测试 p95：${report.scaleBenchmark.p95Milliseconds.toFixed(3)} ms（目标 < ${report.scaleBenchmark.thresholdMilliseconds} ms）`,
     `- 目标状态：${report.passed ? "达到当前门槛" : "尚未达到当前门槛"}`,
@@ -467,7 +557,9 @@ function renderMarkdown(report) {
     lines.push(
       `## ${dataset.fixtureId}`,
       "",
-      `夹具：\`${dataset.fixture}\`；${dataset.pageChars} 字符，${dataset.blockCount} 个内容块，${dataset.sourceLayerCount} 个来源层。`,
+      `夹具：\`${dataset.fixture}\`；原始短页 ${dataset.shortPage.pageChars} 字符，确定性扩展长页 ${dataset.pageChars} 字符，${dataset.blockCount} 个原始内容块，${dataset.sourceLayerCount} 个来源层。`,
+      "",
+      `短页完整性：${dataset.shortPage.completeContextCount}/${dataset.questionCount} 发送全部结构化内容块，证据召回 ${formatPercent(dataset.shortPage.recallPercent)}。`,
       "",
       "| ID | 问题 | Recall | 缩减 | 模式 | 采用块 | 证据块 |",
       "| --- | --- | ---: | ---: | --- | --- | --- |"

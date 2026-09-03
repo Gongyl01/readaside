@@ -45,6 +45,72 @@ test("evidence snapshots preserve only citation-facing block metadata", () => {
   assert.equal(snapshots[1].kindLabel, "表格");
 });
 
+test("long evidence snapshots and cards keep both the beginning and block ending", () => {
+  const longText = [
+    `开头第一段 ${"甲".repeat(1_100)}`,
+    `中间第二段 ${"乙".repeat(1_100)}`,
+    `结尾最后一段 ${"丙".repeat(40)}`
+  ].join("\n\n");
+  const source = [{
+    ...sentBlocks[0],
+    text: longText
+  }];
+  const snapshots = snapshotEvidenceBlocks(source);
+
+  assert.ok(snapshots[0].text.length <= 2_000);
+  assert.match(snapshots[0].text, /^开头第一段/);
+  assert.match(snapshots[0].text, /\[…中间内容已省略…\]/);
+  assert.match(snapshots[0].text, /结尾最后一段/);
+  assert.equal(snapshots[0].textCondensed, true);
+
+  const validation = validateBlockCitations("依据 [B0002]。", {
+    sentBlocks: snapshots,
+    pageBlocks: snapshots
+  });
+  const card = buildEvidenceCardModel(validation).cards[0];
+  assert.match(card.excerpt, /^开头第一段/);
+  assert.match(card.excerpt, /\[…中间内容已省略…\]/);
+  assert.match(card.excerpt, /丙+$/);
+  assert.equal(card.condensed, true);
+});
+
+test("table evidence keeps the header, first two rows, omission row, and final row", () => {
+  const tableText = [
+    "| 字段 | 说明 |",
+    "| --- | --- |",
+    "| first | 第一行 |",
+    "| second | 第二行 |",
+    "| third | 第三行 |",
+    "| fourth | 第四行 |",
+    "| last | 最后一行 |"
+  ].join("\n");
+  const source = [{
+    ...sentBlocks[1],
+    text: tableText
+  }];
+  const snapshots = snapshotEvidenceBlocks(source);
+  const validation = validateBlockCitations("表格依据 [B0010]。", {
+    sentBlocks: snapshots,
+    pageBlocks: snapshots
+  });
+  const card = buildEvidenceCardModel(validation).cards[0];
+
+  assert.deepEqual(
+    card.table.rows.map((row) => row.cells.map((cell) => cell.text)),
+    [
+      ["字段", "说明"],
+      ["first", "第一行"],
+      ["second", "第二行"],
+      ["…", "…"],
+      ["last", "最后一行"]
+    ]
+  );
+  assert.equal(card.table.rows[3].omitted, true);
+  assert.equal(card.table.rows[3].omittedCount, 2);
+  assert.equal(card.excerpt, "");
+  assert.equal(card.condensed, true);
+});
+
 test("parser finds block markers but ignores code, links, and escaped examples", () => {
   const markdown = [
     "KDA 使用通道门控。[B0002]",

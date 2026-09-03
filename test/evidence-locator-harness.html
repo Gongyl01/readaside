@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>ReadAside evidence locator harness</title>
+    <style>
+      body { margin: 0; padding: 24px; font: 16px/1.7 system-ui, sans-serif; }
+      .controls { position: fixed; inset: 12px 12px auto; z-index: 5; display: flex; gap: 8px; }
+      .spacer { height: 900px; }
+      article { max-width: 720px; margin: auto; }
+      p { padding: 14px; border: 1px solid #ddd; border-radius: 10px; }
+      output { position: fixed; right: 12px; bottom: 12px; padding: 8px; background: white; }
+    </style>
+  </head>
+  <body>
+    <div class="controls">
+      <button id="locateUnique">定位唯一证据</button>
+      <button id="locateDuplicate">检查重复证据</button>
+    </div>
+    <div class="spacer"></div>
+    <article>
+      <h1>证据定位测试</h1>
+      <p>前置信息。<strong>核心证据说明系统只在用户点击后读取页面。</strong>后续信息。</p>
+      <p>重复证据句。</p>
+      <p>重复证据句。</p>
+    </article>
+    <output id="result">尚未测试</output>
+    <script type="module">
+      import { locatePageEvidence } from "../lib/evidence-locator.mjs";
+
+      const result = document.querySelector("#result");
+      document.querySelector("#locateUnique").addEventListener("click", () => {
+        result.textContent = JSON.stringify(locatePageEvidence({
+          exactQuote: "核心证据说明系统只在用户点击后读取页面。",
+          locator: {
+            structurePath: "html:nth-of-type(1) > body:nth-of-type(1) > article:nth-of-type(1) > p:nth-of-type(1)",
+            shadowPath: [],
+            textQuote: { exact: "前置信息。核心证据说明系统只在用户点击后读取页面。后续信息。" }
+          }
+        }));
+      });
+
+      document.querySelector("#locateDuplicate").addEventListener("click", () => {
+        result.textContent = JSON.stringify(locatePageEvidence({
+          exactQuote: "重复证据句。",
+          locator: { structurePath: "", shadowPath: [], textQuote: {} }
+        }));
+      });
+    </script>
+  </body>
+</html>

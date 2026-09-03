@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "readaside/evidence-report-evaluation/v1",
+  "targets": [
+    {
+      "id": "B0001",
+      "kind": "paragraph",
+      "text": "系统只在用户点击读取时采集当前页面。页面内容不会被后台持续抓取。"
+    },
+    {
+      "id": "B0002",
+      "kind": "list",
+      "text": "- API Key 只保存在本机。\n- 对话关闭侧栏后释放。"
+    },
+    {
+      "id": "B0003",
+      "kind": "table",
+      "text": "指标 结果\n证据召回 100%\n缩减中位数 85%"
+    },
+    {
+      "id": "B0004",
+      "kind": "paragraph",
+      "text": "同一句重复证据。同一句重复证据。"
+    }
+  ],
+  "cases": [
+    {
+      "id": "ER01",
+      "name": "正文逐字短句",
+      "report": { "evidence": [{ "blockId": "B0001", "exactQuote": "系统只在用户点击读取时采集当前页面。", "supports": "读取时机" }] },
+      "expectedValid": 1,
+      "expectedRejected": 0
+    },
+    {
+      "id": "ER02",
+      "name": "列表项逐字证据",
+      "report": { "evidence": [{ "blockId": "B0002", "exactQuote": "API Key 只保存在本机。", "supports": "Key 保存位置" }] },
+      "expectedValid": 1,
+      "expectedRejected": 0
+    },
+    {
+      "id": "ER03",
+      "name": "表格单元格证据",
+      "report": { "evidence": [{ "blockId": "B0003", "exactQuote": "证据召回 100%", "supports": "召回指标" }] },
+      "expectedValid": 1,
+      "expectedRejected": 0
+    },
+    {
+      "id": "ER04",
+      "name": "空证据安全降级",
+      "report": { "evidence": [] },
+      "expectedValid": 0,
+      "expectedRejected": 0
+    },
+    {
+      "id": "ER05",
+      "name": "未知块号",
+      "report": { "evidence": [{ "blockId": "B9999", "exactQuote": "不存在的原文。", "supports": "伪造" }] },
+      "expectedValid": 0,
+      "expectedRejected": 1
+    },
+    {
+      "id": "ER06",
+      "name": "模型改写而非逐字引用",
+      "report": { "evidence": [{ "blockId": "B0001", "exactQuote": "系统会一直在后台采集网页。", "supports": "错误改写" }] },
+      "expectedValid": 0,
+      "expectedRejected": 1
+    },
+    {
+      "id": "ER07",
+      "name": "重复原文不安全定位",
+      "report": { "evidence": [{ "blockId": "B0004", "exactQuote": "同一句重复证据。", "supports": "重复" }] },
+      "expectedValid": 0,
+      "expectedRejected": 1
+    },
+    {
+      "id": "ER08",
+      "name": "空原文",
+      "report": { "evidence": [{ "blockId": "B0002", "exactQuote": "", "supports": "空值" }] },
+      "expectedValid": 0,
+      "expectedRejected": 1
+    }
+  ]
+}
