@@ -11,7 +11,7 @@ ReadAside 是一个 Chrome 网页阅读侧栏。它在本地提取页面结构�
 
 <p>
   <img alt="Status: active beta" src="https://img.shields.io/badge/STATUS-ACTIVE%20BETA-176B3A?style=for-the-badge" />
-  <img alt="Version: 0.11.0" src="https://img.shields.io/badge/VERSION-0.11.0-21362A?style=for-the-badge" />
+  <img alt="Version: 0.11.1" src="https://img.shields.io/badge/VERSION-0.11.1-21362A?style=for-the-badge" />
   <img alt="Chrome: 114+" src="https://img.shields.io/badge/CHROME-114%2B-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" />
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/LICENSE-MIT-718077?style=for-the-badge" /></a>
 </p>
@@ -41,7 +41,7 @@ ReadAside 是一个 Chrome 网页阅读侧栏。它在本地提取页面结构�
 </div>
 
 > [!IMPORTANT]
-> ReadAside 目前处于 beta。通过 Chrome 开发者模式安装，使用你自己的 DeepSeek API Key；项目没有自建服务器、账号系统或遥测。
+> ReadAside 目前处于 beta。通过 Chrome 开发者模式安装，使用你自己的模型 API Key；项目没有自建服务器、账号系统或遥测。
 
 ## 为什么是 ReadAside
 
@@ -72,7 +72,7 @@ ReadAside 把这条链路收进当前标签页：
 
 ### 保持清楚的数据边界
 
-页面结构解析、长页选择、证据校验和定位都发生在浏览器本地。只有发起提问时，必要上下文才会直连 DeepSeek。
+页面结构解析、长页选择、证据校验和定位都发生在浏览器本地。只有发起提问时，必要上下文才会直连你选定的模型服务。
 
 ## ⚡ 快速开始
 
@@ -84,7 +84,9 @@ ReadAside 把这条链路收进当前标签页：
 2. 在 Chrome 地址栏打开 `chrome://extensions`。
 3. 开启右上角的 **开发者模式**，点击 **加载已解压的扩展程序**。
 4. 选择包含 `manifest.json` 的 ReadAside 目录。
-5. 打开 ReadAside 侧栏，在设置中保存并测试个人 DeepSeek API Key。
+5. 打开 ReadAside 侧栏，在设置中选择服务地址、填写模型名和个人 API Key，保存后测试连接。
+
+设置支持 DeepSeek、OpenAI、Anthropic 预设地址，以及自定义 Base URL。自定义地址需选择 OpenAI Chat Completions 或 Anthropic Messages 兼容协议；模型名始终手动填写，以便服务商更新模型时直接修改。更换服务地址时须重新输入该地址的 API Key。测试连接只请求模型列表；列表未包含模型名或服务未提供列表接口时，以实际发送结果为准。DeepSeek 保留联网搜索和原文依据；其他 Anthropic 兼容服务可通过工具调用返回原文依据，OpenAI 兼容接口提供基本对话。
 
 仓库已经提交构建后的 `dist/`，直接加载源码即可使用，不需要先安装 Node.js。
 
@@ -103,7 +105,7 @@ ReadAside 把这条链路收进当前标签页：
 flowchart LR
     PAGE[当前网页] -->|用户点击读取| EXTRACT[本地结构化提取]
     EXTRACT --> PREVIEW[发送上下文预览]
-    PREVIEW -->|用户确认提问| MODEL[DeepSeek]
+    PREVIEW -->|用户确认提问| MODEL[所选模型服务]
     MODEL --> ANSWER[流式回答]
     MODEL -. 隐藏证据 .-> VERIFY[本地逐字校验]
     VERIFY -->|校验通过| ACTION[查看原文依据]
@@ -116,6 +118,13 @@ flowchart LR
 ```
 
 ReadAside 不会在后台持续抓取网页，也不会在回答完成后自动移动页面。读取和定位都由明确的用户操作触发。
+
+## ◉ 0.11.1：模型配置与页面阅读修复
+
+- API 设置支持 DeepSeek、OpenAI、Anthropic 和自定义服务地址；模型名由用户填写，并支持 OpenAI Chat Completions 与 Anthropic Messages 兼容协议。
+- 修复部分网页中翻译插件样式被当作正文提取的问题。
+- 自动选择会区分整页概览与指定主题，覆盖同类章节和多个独立问题；无关键词命中时回退到已提取的全文。
+- 用户指出遗漏时，要求模型重新核对本次发送的页面内容。
 
 ## ◉ 0.11.0：从回答回到原文
 
@@ -158,7 +167,7 @@ ReadAside 不会在后台持续抓取网页，也不会在回答完成后自动�
 <details>
 <summary><strong>上下文控制</strong></summary>
 
-- 不超过 16,000 字符的页面在自动模式下发送全部结构化内容块。
+- 自动模式支持按位置选取 arXiv HTML 论文的引言或摘要段落。其他问题在页面不超过 16,000 字符时发送全部结构化内容块。
 - 更长页面根据当前问题，在本地选择相关内容块并展示缩减比例。
 - 选区问题优先使用选区，同时保留必要的整页上下文。
 - 完整兼容文本、结构化内容块和实际发送内容分层展示，诊断信息不会混入模型上下文。
@@ -168,7 +177,7 @@ ReadAside 不会在后台持续抓取网页，也不会在回答完成后自动�
 <details>
 <summary><strong>回答与异常处理</strong></summary>
 
-- 支持 DeepSeek 流式回答、按需联网搜索、GFM、表格、脚注、代码和 KaTeX 公式。
+- 支持流式回答、GFM、表格、脚注、代码和 KaTeX 公式；DeepSeek 接口还支持按需联网搜索。
 - 中文输入法组合输入期间，<kbd>Enter</kbd> 只确认候选词，不会误发送。
 - API Key、余额、限流、网络、服务端和空回答具有不同提示。
 - 失败的付费模型请求不会自动重试，需要用户确认后重新发送。
@@ -179,7 +188,7 @@ ReadAside 不会在后台持续抓取网页，也不会在回答完成后自动�
 
 仓库包含固定数据集、版本快照与确定性门禁，用于区分“上下文选得对不对”和“证据放行是否安全”。
 
-| SIGNAL | 0.11.0 RESULT |
+| SIGNAL | 0.11.1 RESULT |
 | :--- | ---: |
 | 短页面完整结构化发送 | **30 / 30** |
 | 长页面必需证据召回 | **100% · 32 / 32** |
@@ -191,14 +200,14 @@ ReadAside 不会在后台持续抓取网页，也不会在回答完成后自动�
 
 ## ⛨ 数据边界
 
-| 留在浏览器本地 | 提问时发送给 DeepSeek |
+| 留在浏览器本地 | 提问时发送给所选模型服务 |
 | :--- | :--- |
 | DOM 路径与定位锚点 | 当前页面标题与 URL |
 | 页面结构解析与长页选择 | 本次采用的页面上下文与选区 |
 | 证据逐字校验与页面高亮 | 当前问题与最近 12 条对话消息 |
-| 当前侧栏会话状态 | 隐藏证据工具定义与允许使用的内容块号 |
+| 当前侧栏会话状态 | Anthropic 兼容请求的隐藏证据工具定义与允许使用的内容块号 |
 
-- API Key 仅保存在本机 `chrome.storage.local`，但这里不是系统钥匙串。
+- API Key 和接口设置仅保存在本机 `chrome.storage.local`，但这里不是系统钥匙串。
 - 对话只保存在当前侧栏内存中，最多 20 轮；关闭侧栏或清除对话后释放，API Key 单独保留。
 - 使用 DeepSeek Web Search 时，问题与相关上下文会被用于完成搜索。
 - 项目没有自建服务器、用户账号、云同步、遥测或分析服务。
@@ -207,7 +216,7 @@ ReadAside 不会在后台持续抓取网页，也不会在回答完成后自动�
 
 ### 读取本地文件
 
-在扩展详情页开启 **允许访问文件网址**，再用 Chrome 打开 `.html`、`.htm`、`.txt`、`.json`、`.md` 或 `.markdown` 文件。本地文件内容在提问时同样会发送给 DeepSeek，请勿读取不希望上传的敏感资料。
+在扩展详情页开启 **允许访问文件网址**，再用 Chrome 打开 `.html`、`.htm`、`.txt`、`.json`、`.md` 或 `.markdown` 文件。本地文件内容在提问时同样会发送给所选模型服务，请勿读取不希望上传的敏感资料。
 
 ## 边界与限制
 
@@ -215,7 +224,7 @@ ReadAside 不会在后台持续抓取网页，也不会在回答完成后自动�
 - Chrome 内置页面和 Chrome Web Store 受浏览器限制，无法读取。
 - 关闭式 Shadow DOM、Canvas 文字和虚拟列表中尚未渲染的内容无法完整提取。
 - 当前不支持 PDF、图片、视频、Canvas OCR 或完整虚拟列表采集。
-- 当前不做用户登录、云同步、自建代理、多模型切换、自动操作网页或后台常驻抓取。
+- 当前不做用户登录、云同步、自建代理、自动操作网页或后台常驻抓取。
 - 真实模型工具调用覆盖率和公开网页定位成功率仍需继续进行人工评测。
 
 ## ⌘ 开发与验证
@@ -243,13 +252,13 @@ npm run evaluate:evidence
 npm run package
 ```
 
-产物位于 `release/readaside-0.11.0.zip`，不会包含 `node_modules`、测试文件、环境文件或本机配置。
+产物位于 `release/readaside-0.11.1.zip`，不会包含 `node_modules`、测试文件、环境文件或本机配置。
 
 <details>
 <summary><strong>仓库结构</strong></summary>
 
 ```text
-background.mjs        # Key 管理、DeepSeek 请求、流式事件
+background.mjs        # API 设置、模型请求、流式事件
 sidepanel.*           # 侧栏界面、会话状态与点击定位
 lib/                  # 页面提取、上下文、证据和渲染逻辑
 dist/                 # Markdown 渲染器与 KaTeX 字体
