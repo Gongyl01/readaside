@@ -36,6 +36,32 @@ test("buildMessages includes page context and safe history", () => {
   ]);
 });
 
+test("full context recheck retains every section despite an incorrect earlier answer", () => {
+  const headings = [
+    "Prompt chaining",
+    "Routing",
+    "Parallelization",
+    "Orchestrator-workers",
+    "Evaluator-optimizer"
+  ];
+  const messages = buildMessages({
+    page: {
+      title: "Building effective agents",
+      url: "https://www.anthropic.com/engineering/building-effective-agents",
+      text: headings.map((name) => `Workflow: ${name}\nWhen to use this workflow: ${name}`).join("\n\n")
+    },
+    context: { requestedMode: "full", effectiveMode: "full" },
+    history: [{ role: "assistant", content: "网页只有一种 workflow。" }],
+    question: "网页明明有五种，请重新核对。"
+  });
+
+  assert.match(messages[0].content, /不要沿用先前回答的判断/);
+  assert.match(messages[1].content, /<page_context_mode>full<\/page_context_mode>/);
+  for (const name of headings) {
+    assert.ok(messages[1].content.includes(`Workflow: ${name}`));
+  }
+});
+
 test("normalizePage rejects empty content", () => {
   assert.throws(() => normalizePage({ title: "空", url: "https://example.com", text: "" }), /没有可读取/);
 });
