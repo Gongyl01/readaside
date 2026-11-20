@@ -1,11 +1,17 @@
 import {
-  DEEPSEEK_ANTHROPIC_MESSAGES_URL,
-  DEEPSEEK_BASE_URL,
-  DEEPSEEK_MODEL,
   buildAnthropicPayload,
+  buildMessages,
   parseAnthropicSseChunk,
   readApiErrorDetails
 } from "./lib/deepseek.mjs";
+import {
+  DEFAULT_API_CONFIG,
+  apiEndpoint,
+  apiPermissionOrigin,
+  apiProviderName,
+  normalizeApiConfig
+} from "./lib/api-config.mjs";
+import { parseOpenAiSseChunk } from "./lib/openai-stream.mjs";
 import { createRequestError, serializeRequestError } from "./lib/request-error.mjs";
 import {
   EVIDENCE_REPORT_PROTOCOL,
@@ -14,6 +20,8 @@ import {
 } from "./lib/evidence-report.mjs";
 
 const KEY_STORAGE_NAME = "deepseekApiKey";
+const SETTINGS_STORAGE_NAME = "apiSettings";
+const MAX_OUTPUT_TOKENS = 4096;
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
@@ -48,28 +56,34 @@ async function handlePortMessage(port, activeRequests, message) {
 
   switch (action) {
     case "key.status": {
-      const key = await getApiKey();
-      postResponse(port, id, true, {
-        configured: Boolean(key),
-        preview: key ? `••••${key.slice(-4)}` : ""
-      });
+      const settings = await getApiSettings();
+      postResponse(port, id, true, publicApiSettings(settings));
       return;
     }
     case "key.save": {
-      const key = normalizeApiKey(payload.key);
-      await chrome.storage.local.set({ [KEY_STORAGE_NAME]: key });
-      postResponse(port, id, true, { configured: true, preview: `••••${key.slice(-4)}` });
+      const config = normalizeApiConfig(payload);
+      const existing = await getApiSettings();
+      if (existing.key && existing.baseUrl !== config.baseUrl && !String(payload.key ?? "").trim()) {
+        throw new Error("更换服务地址时，请重新输入该服务的 API Key。");
+      }
+      const key = normalizeApiKey(payload.key || existing.key);
+      const allowed = await chrome.permissions.contains({ origins: [apiPermissionOrigin(config)] });
+      if (!allowed) throw new Error("请先允许扩展访问所选 API 地址。");
+      const settings = { ...config, key };
+      await chrome.storage.local.set({ [SETTINGS_STORAGE_NAME]: settings });
+      await chrome.storage.local.remove(KEY_STORAGE_NAME);
+      postResponse(port, id, true, publicApiSettings(settings));
       return;
     }
     case "key.clear": {
-      await chrome.storage.local.remove(KEY_STORAGE_NAME);
-      postResponse(port, id, true, { configured: false, preview: "" });
+      await chrome.storage.local.remove([KEY_STORAGE_NAME, SETTINGS_STORAGE_NAME]);
+      postResponse(port, id, true, publicApiSettings({ ...DEFAULT_API_CONFIG, key: "" }));
       return;
     }
     case "key.test": {
-      const key = await getApiKey();
-      if (!key) throw new Error("请先保存 DeepSeek API Key。");
-      const result = await testApiKey(key);
+      const settings = await getApiSettings();
+      if (!settings.key) throw new Error("请先保存 API 设置。");
+      const result = await testApiSettings(settings);
       postResponse(port, id, true, result);
       return;
     }
@@ -106,39 +120,45 @@ async function handlePortMessage(port, activeRequests, message) {
 }
 
 async function streamChat(port, requestId, payload, signal) {
-  const key = await getApiKey();
-  if (!key) throw new Error("请先在设置中保存 DeepSeek API Key。");
-
-  const conversation = buildAnthropicPayload(payload);
+  const settings = await getApiSettings();
+  if (!settings.key) throw new Error("请先在设置中保存 API 设置。");
+  const providerName = apiProviderName(settings);
+  const isDeepSeek = settings.preset === "deepseek";
   const evidenceEnabled = payload?.context?.evidenceProtocol === EVIDENCE_REPORT_PROTOCOL;
-  const tools = [
-    {
-      type: "web_search_20250305",
-      name: "web_search",
-      max_uses: 3
-    },
+  const anthropic = settings.protocol === "anthropic";
+  const tools = anthropic ? [
+    ...(isDeepSeek ? [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }] : []),
     ...(evidenceEnabled ? [buildEvidenceReportTool()] : [])
-  ];
-  let response;
-  try {
-    response = await fetch(DEEPSEEK_ANTHROPIC_MESSAGES_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
+  ] : [];
+  const conversation = anthropic
+    ? buildAnthropicPayload(payload, { allowWebSearch: isDeepSeek })
+    : buildMessages(payload, { allowWebSearch: false, allowEvidence: false });
+  const requestBody = anthropic
+    ? {
+        model: settings.model,
         system: conversation.system,
         messages: conversation.messages,
-        thinking: { type: "disabled" },
-        max_tokens: 2048,
-        tools,
-        tool_choice: { type: "auto" },
+        ...(isDeepSeek ? { thinking: { type: "disabled" } } : {}),
+        max_tokens: MAX_OUTPUT_TOKENS,
+        ...(tools.length ? { tools, tool_choice: { type: "auto" } } : {}),
         stream: true
-      }),
+      }
+    : {
+        model: settings.model,
+        messages: conversation,
+        ...(settings.preset === "openai"
+          ? { max_completion_tokens: MAX_OUTPUT_TOKENS }
+          : { max_tokens: MAX_OUTPUT_TOKENS }),
+        stream: true
+      };
+  let response;
+  try {
+    response = await fetch(apiEndpoint(settings, anthropic ? "messages" : "chat/completions"), {
+      method: "POST",
+      headers: apiHeaders(settings),
+      body: JSON.stringify(requestBody),
       cache: "no-store",
+      redirect: "error",
       signal
     });
   } catch (error) {
@@ -147,21 +167,21 @@ async function streamChat(port, requestId, payload, signal) {
       {
         code: "network",
         category: "network",
-        message: "无法连接 DeepSeek，请检查网络或代理设置。",
-        advice: "确认浏览器可以访问 api.deepseek.com，并检查代理、防火墙或 DNS。",
+        message: `无法连接 ${providerName}，请检查网络或代理设置。`,
+        advice: `确认浏览器可以访问 ${new URL(settings.baseUrl).host}，并检查代理、防火墙或 DNS。`,
         retryable: true
       },
       error
     );
   }
 
-  if (!response.ok) throw createRequestError(await readApiErrorDetails(response));
+  if (!response.ok) throw createRequestError(await readApiErrorDetails(response, providerName));
   if (!response.body) {
     throw createRequestError({
       code: "missing_stream",
       category: "response",
-      message: "DeepSeek 没有返回可读取的响应流。",
-      advice: "请手动重新发送；如果持续出现，请查看 DeepSeek 服务状态。",
+      message: `${providerName} 没有返回可读取的响应流。`,
+      advice: "请手动重新发送；如果持续出现，请检查模型服务状态。",
       retryable: true
     });
   }
@@ -208,7 +228,7 @@ async function streamChat(port, requestId, payload, signal) {
         code: "provider_stream",
         category: "provider",
         message: event.error,
-        advice: "DeepSeek 在生成过程中返回错误，请稍后手动重新发送。",
+        advice: `${providerName} 在生成过程中返回错误，请稍后手动重新发送。`,
         retryable: true
       });
     }
@@ -218,19 +238,23 @@ async function streamChat(port, requestId, payload, signal) {
     const { value, done } = await reader.read();
     if (done) break;
 
-    const parsed = parseAnthropicSseChunk(buffer, decoder.decode(value, { stream: true }));
+    const parsed = anthropic
+      ? parseAnthropicSseChunk(buffer, decoder.decode(value, { stream: true }))
+      : parseOpenAiSseChunk(buffer, decoder.decode(value, { stream: true }));
     buffer = parsed.buffer;
     for (const event of parsed.events) handleStreamEvent(event);
   }
 
-  const finalParsed = parseAnthropicSseChunk(buffer, decoder.decode(), true);
+  const finalParsed = anthropic
+    ? parseAnthropicSseChunk(buffer, decoder.decode(), true)
+    : parseOpenAiSseChunk(buffer, decoder.decode(), true);
   for (const event of finalParsed.events) handleStreamEvent(event);
 
   if (!receivedContent && searchAnnounced) {
     throw createRequestError({
       code: "empty_search_response",
       category: "response",
-      message: "DeepSeek 已执行联网搜索，但没有生成最终总结。",
+      message: `${providerName} 已执行联网搜索，但没有生成最终总结。`,
       advice: "可以直接手动重新发送原问题。",
       retryable: true
     });
@@ -239,7 +263,7 @@ async function streamChat(port, requestId, payload, signal) {
     throw createRequestError({
       code: "empty_response",
       category: "response",
-      message: "DeepSeek 返回了空回答。",
+      message: `${providerName} 返回了空回答。`,
       advice: "可以直接手动重新发送原问题。",
       retryable: true
     });
@@ -261,45 +285,96 @@ function parseEvidenceToolInput(buffer) {
   return null;
 }
 
-async function testApiKey(key) {
+async function testApiSettings(settings) {
+  const providerName = apiProviderName(settings);
+  const url = settings.preset === "deepseek"
+    ? `${new URL(settings.baseUrl).origin}/models`
+    : apiEndpoint(settings, "models");
   let response;
   try {
-    response = await fetch(`${DEEPSEEK_BASE_URL}/models`, {
-      headers: { Authorization: `Bearer ${key}` },
-      cache: "no-store"
+    response = await fetch(url, {
+      headers: settings.preset === "deepseek"
+        ? { Authorization: `Bearer ${settings.key}` }
+        : apiHeaders(settings),
+      cache: "no-store",
+      redirect: "error"
     });
   } catch (error) {
     throw createRequestError(
       {
         code: "network",
         category: "network",
-        message: "无法连接 DeepSeek，请检查网络或代理设置。",
-        advice: "确认浏览器可以访问 api.deepseek.com，并检查代理、防火墙或 DNS。",
+        message: `无法连接 ${providerName}，请检查网络或代理设置。`,
+        advice: `确认浏览器可以访问 ${new URL(settings.baseUrl).host}，并检查代理、防火墙或 DNS。`,
         retryable: true
       },
       error
     );
   }
 
-  if (!response.ok) throw createRequestError(await readApiErrorDetails(response));
-  const payload = await response.json();
-  const modelIds = Array.isArray(payload?.data) ? payload.data.map((item) => item?.id) : [];
+  if (response.status === 404 || response.status === 405) {
+    return { listAvailable: false, model: settings.model };
+  }
+  if (!response.ok) throw createRequestError(await readApiErrorDetails(response, providerName));
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    return { listAvailable: false, model: settings.model };
+  }
+  if (!Array.isArray(payload?.data)) return { listAvailable: false, model: settings.model };
+  const modelIds = payload.data.map((item) => item?.id);
   return {
     valid: true,
-    modelAvailable: modelIds.includes(DEEPSEEK_MODEL),
-    model: DEEPSEEK_MODEL
+    listAvailable: true,
+    modelAvailable: modelIds.includes(settings.model),
+    model: settings.model
   };
 }
 
-async function getApiKey() {
-  const result = await chrome.storage.local.get(KEY_STORAGE_NAME);
-  return String(result?.[KEY_STORAGE_NAME] ?? "").trim();
+async function getApiSettings() {
+  const result = await chrome.storage.local.get([SETTINGS_STORAGE_NAME, KEY_STORAGE_NAME]);
+  const saved = result?.[SETTINGS_STORAGE_NAME];
+  if (saved && typeof saved === "object") {
+    return {
+      ...normalizeApiConfig(saved),
+      key: String(saved.key ?? result?.[KEY_STORAGE_NAME] ?? "").trim()
+    };
+  }
+  return {
+    ...DEFAULT_API_CONFIG,
+    key: String(result?.[KEY_STORAGE_NAME] ?? "").trim()
+  };
+}
+
+function publicApiSettings(settings) {
+  return {
+    configured: Boolean(settings.key),
+    preview: settings.key ? `••••${settings.key.length > 4 ? settings.key.slice(-4) : ""}` : "",
+    preset: settings.preset,
+    protocol: settings.protocol,
+    baseUrl: settings.baseUrl,
+    model: settings.model
+  };
+}
+
+function apiHeaders(settings) {
+  return settings.protocol === "anthropic"
+    ? {
+        "Content-Type": "application/json",
+        "x-api-key": settings.key,
+        "anthropic-version": "2023-06-01"
+      }
+    : {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${settings.key}`
+      };
 }
 
 function normalizeApiKey(value) {
   const key = String(value ?? "").trim();
   if (!key) throw new Error("API Key 不能为空。");
-  if (key.length < 16 || /\s/.test(key)) throw new Error("API Key 格式看起来不正确。");
+  if (/\s/.test(key)) throw new Error("API Key 不能包含空格。");
   return key;
 }
 

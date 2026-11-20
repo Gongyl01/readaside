@@ -16,6 +16,11 @@ import {
   mergeSelectionContents
 } from "./lib/selection-extractor.mjs";
 import { shouldSubmitOnEnter } from "./lib/input.mjs";
+import {
+  API_PRESETS,
+  apiPermissionOrigin,
+  normalizeApiConfig
+} from "./lib/api-config.mjs";
 import { renderMarkdown } from "./dist/markdown-renderer.mjs";
 import { createPortClient } from "./lib/port-client.mjs";
 import {
@@ -33,6 +38,8 @@ import {
 
 const elements = {
   apiKeyInput: document.querySelector("#apiKeyInput"),
+  apiProtocol: document.querySelector("#apiProtocol"),
+  baseUrlInput: document.querySelector("#baseUrlInput"),
   cancelButton: document.querySelector("#cancelButton"),
   clearChatButton: document.querySelector("#clearChatButton"),
   clearKeyButton: document.querySelector("#clearKeyButton"),
@@ -51,12 +58,14 @@ const elements = {
   contextPreviewSummary: document.querySelector("#contextPreviewSummary"),
   emptyState: document.querySelector("#emptyState"),
   keyBadge: document.querySelector("#keyBadge"),
+  modelInput: document.querySelector("#modelInput"),
   pageHeading: document.querySelector("#pageHeading"),
   pageMeta: document.querySelector("#pageMeta"),
   pagePreview: document.querySelector("#pagePreview"),
   pagePreviewText: document.querySelector("#pagePreviewText"),
   pageUrl: document.querySelector("#pageUrl"),
   previewCount: document.querySelector("#previewCount"),
+  providerPreset: document.querySelector("#providerPreset"),
   questionInput: document.querySelector("#questionInput"),
   readPageButton: document.querySelector("#readPageButton"),
   readSelectionButton: document.querySelector("#readSelectionButton"),
@@ -78,7 +87,9 @@ const state = {
   contextPlan: null,
   history: [],
   activeRequest: null,
-  keyConfigured: false
+  keyConfigured: false,
+  providerName: "DeepSeek",
+  savedBaseUrl: ""
 };
 
 const NORMAL_WEB_PAGE_PERMISSIONS = ["http://*/*", "https://*/*"];
@@ -114,6 +125,7 @@ elements.clearSelectionButton.addEventListener("click", () => clearSelection());
 elements.saveKeyButton.addEventListener("click", saveApiKey);
 elements.testKeyButton.addEventListener("click", testApiKey);
 elements.clearKeyButton.addEventListener("click", clearApiKey);
+elements.providerPreset.addEventListener("change", updateProviderPreset);
 elements.sendButton.addEventListener("click", sendQuestion);
 elements.cancelButton.addEventListener("click", cancelActiveRequest);
 elements.clearChatButton.addEventListener("click", clearConversation);
@@ -178,6 +190,7 @@ async function refreshKeyStatus() {
   try {
     const status = await requestBackground("key.status");
     renderKeyStatus(status);
+    renderApiSettings(status);
   } catch (error) {
     setStatus(error.message, true);
   }
@@ -185,12 +198,32 @@ async function refreshKeyStatus() {
 
 async function saveApiKey() {
   const key = elements.apiKeyInput.value.trim();
+  let config;
+  try {
+    config = normalizeApiConfig({
+      preset: elements.providerPreset.value,
+      protocol: elements.apiProtocol.value,
+      baseUrl: elements.baseUrlInput.value,
+      model: elements.modelInput.value
+    });
+  } catch (error) {
+    setStatus(error.message, true);
+    return;
+  }
   setSettingsBusy(true);
   try {
-    const status = await requestBackground("key.save", { key });
+    if (state.keyConfigured && state.savedBaseUrl !== config.baseUrl && !key) {
+      throw new Error("更换服务地址时，请重新输入该服务的 API Key。");
+    }
+    if (config.preset !== "deepseek") {
+      const allowed = await chrome.permissions.request({ origins: [apiPermissionOrigin(config)] });
+      if (!allowed) throw new Error("请允许扩展访问所选 API 地址，然后重新保存。");
+    }
+    const status = await requestBackground("key.save", { ...config, key });
     elements.apiKeyInput.value = "";
     renderKeyStatus(status);
-    setStatus("API Key 已保存在本机");
+    renderApiSettings(status);
+    setStatus("模型 API 设置已保存在本机");
   } catch (error) {
     setStatus(error.message, true);
   } finally {
@@ -202,10 +235,12 @@ async function testApiKey() {
   setSettingsBusy(true);
   try {
     const result = await requestBackground("key.test");
-    if (!result.modelAvailable) {
-      setStatus(`Key 有效，但账号暂未提供 ${result.model}。`, true);
+    if (!result.listAvailable) {
+      setStatus("无法从该地址获取可识别的模型列表；可发送问题测试实际调用。");
+    } else if (!result.modelAvailable) {
+      setStatus(`Key 可访问模型列表，但列表未列出 ${result.model}；请核对名称。`, true);
     } else {
-      setStatus(`连接正常，可使用 ${result.model}`);
+      setStatus(`连接正常，模型列表包含 ${result.model}`);
     }
   } catch (error) {
     setStatus(error.message, true);
@@ -220,7 +255,8 @@ async function clearApiKey() {
     const status = await requestBackground("key.clear");
     elements.apiKeyInput.value = "";
     renderKeyStatus(status);
-    setStatus("API Key 已清除");
+    renderApiSettings(status);
+    setStatus("模型 API 设置已清除");
   } catch (error) {
     setStatus(error.message, true);
   } finally {
@@ -230,9 +266,29 @@ async function clearApiKey() {
 
 function renderKeyStatus(status) {
   state.keyConfigured = Boolean(status?.configured);
+  state.providerName = API_PRESETS[status?.preset]?.name || "自定义模型服务";
   elements.keyBadge.textContent = state.keyConfigured ? `已配置 ${status.preview}` : "未配置";
   elements.keyBadge.classList.toggle("badge-success", state.keyConfigured);
   elements.keyBadge.classList.toggle("badge-warning", !state.keyConfigured);
+}
+
+function renderApiSettings(status) {
+  state.savedBaseUrl = status.baseUrl || "";
+  elements.providerPreset.value = status.preset || "deepseek";
+  elements.apiProtocol.value = status.protocol || "anthropic";
+  elements.baseUrlInput.value = status.baseUrl || "";
+  elements.modelInput.value = status.configured ? status.model || "" : "";
+  elements.apiProtocol.disabled = elements.providerPreset.value !== "custom";
+  elements.baseUrlInput.readOnly = elements.providerPreset.value !== "custom";
+}
+
+function updateProviderPreset() {
+  const preset = API_PRESETS[elements.providerPreset.value];
+  elements.apiProtocol.disabled = Boolean(preset);
+  elements.baseUrlInput.readOnly = Boolean(preset);
+  elements.apiProtocol.value = preset?.protocol || "openai";
+  elements.baseUrlInput.value = preset?.baseUrl || "";
+  elements.modelInput.value = "";
 }
 
 async function readCurrentPage() {
@@ -624,7 +680,7 @@ async function sendQuestion() {
 
   const question = elements.questionInput.value.trim();
   if (!state.keyConfigured) {
-    setStatus("请先展开设置并保存 DeepSeek API Key。", true);
+    setStatus("请先展开设置并保存模型 API 配置。", true);
     return;
   }
   if (!state.page) {
@@ -682,10 +738,10 @@ async function startChatRequest(payload, { appendUser = true, assistantElement =
   setChatBusy(true);
   setStatus(
     payload.context?.effectiveMode === "retrieved"
-      ? `DeepSeek 正在阅读 ${payload.context.selectedBlockCount} 个相关内容块…`
+      ? `${state.providerName} 正在阅读 ${payload.context.selectedBlockCount} 个相关内容块…`
       : payload.context?.effectiveMode === "structured"
-        ? `DeepSeek 正在阅读全部 ${payload.context.selectedBlockCount} 个内容块…`
-      : "DeepSeek 正在阅读完整页面并回答…"
+        ? `${state.providerName} 正在阅读全部 ${payload.context.selectedBlockCount} 个内容块…`
+      : `${state.providerName} 正在阅读完整页面并回答…`
   );
 
   try {
@@ -939,6 +995,11 @@ function setSettingsBusy(busy) {
   elements.saveKeyButton.disabled = busy;
   elements.testKeyButton.disabled = busy;
   elements.clearKeyButton.disabled = busy;
+  elements.providerPreset.disabled = busy;
+  elements.apiProtocol.disabled = busy || elements.providerPreset.value !== "custom";
+  elements.baseUrlInput.readOnly = busy || elements.providerPreset.value !== "custom";
+  elements.modelInput.disabled = busy;
+  elements.apiKeyInput.disabled = busy;
 }
 
 function setChatBusy(busy) {

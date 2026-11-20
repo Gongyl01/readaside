@@ -13,7 +13,7 @@ test("HTTP errors preserve status and actionable categories", () => {
     code: "authentication",
     category: "account",
     message: "API Key 无效或没有访问权限，请重新检查。",
-    advice: "请在设置中重新保存并测试 DeepSeek API Key。",
+    advice: "请在设置中重新保存并测试 API Key。",
     httpStatus: 401,
     retryable: false,
     statusUrl: ""
@@ -22,7 +22,7 @@ test("HTTP errors preserve status and actionable categories", () => {
   const unavailable = describeHttpError(503);
   assert.equal(unavailable.retryable, true);
   assert.equal(unavailable.statusUrl, DEEPSEEK_STATUS_URL);
-  assert.equal(formatErrorLabel(unavailable), "HTTP 503 · DeepSeek 服务");
+  assert.equal(formatErrorLabel(unavailable), "HTTP 503 · 模型服务");
 });
 
 test("custom request errors are safe to serialize for the side panel", () => {

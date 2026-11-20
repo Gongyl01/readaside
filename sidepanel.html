@@ -119,25 +119,48 @@
 
       <details class="settings-card">
         <summary>
-          <span>DeepSeek API Key</span>
+          <span>模型 API 设置</span>
           <span id="keyBadge" class="badge badge-warning">未配置</span>
         </summary>
         <div class="settings-content">
+          <label for="providerPreset">服务地址</label>
+          <select id="providerPreset">
+            <option value="deepseek">DeepSeek</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="custom">自定义 Base URL</option>
+          </select>
+          <label for="apiProtocol">接口类型</label>
+          <select id="apiProtocol" disabled>
+            <option value="anthropic">Anthropic Messages</option>
+            <option value="openai">OpenAI Chat Completions</option>
+          </select>
+          <label for="baseUrlInput">Base URL</label>
+          <input id="baseUrlInput" type="url" spellcheck="false" readonly />
+          <label for="modelInput">模型名</label>
+          <input
+            id="modelInput"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="例如 deepseek-flash，按服务商文档填写"
+          />
           <label for="apiKeyInput">个人 API Key</label>
           <input
             id="apiKeyInput"
             type="password"
             autocomplete="off"
             spellcheck="false"
-            placeholder="粘贴 DeepSeek API Key"
+            placeholder="粘贴 API Key；更换地址时需重新填写"
           />
           <p class="help-text">
-            Key 只保存在本机 Chrome 扩展存储中，并直接用于访问 DeepSeek。
+            Key 只保存在本机 Chrome 扩展存储中。提问内容会发送到选定的服务地址。
+            OpenAI 兼容接口支持基本对话；原文依据需要 Anthropic 兼容工具调用，联网搜索目前仅支持 DeepSeek。
           </p>
           <div class="button-row">
-            <button id="saveKeyButton" class="button button-primary" type="button">保存</button>
+            <button id="saveKeyButton" class="button button-primary" type="button">保存设置</button>
             <button id="testKeyButton" class="button button-secondary" type="button">测试连接</button>
-            <button id="clearKeyButton" class="button button-danger" type="button">清除</button>
+            <button id="clearKeyButton" class="button button-danger" type="button">清除设置</button>
           </div>
         </div>
       </details>

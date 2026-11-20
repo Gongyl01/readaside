@@ -600,6 +600,21 @@ button:disabled {
   font-weight: 700;
 }
 
+.settings-content select {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.settings-content select:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.12);
+}
+
 input,
 textarea {
   width: 100%;
