@@ -83,6 +83,55 @@ test("automatic context selects Chinese query matches and nearby blocks", () => 
   assert.ok(plan.reductionPercent > 0);
 });
 
+test("paper paragraph references select the whole target and neighbors within its section", () => {
+  const title = "Context Folding for Long-Horizon Agents";
+  const abstract = [title, "Abstract"];
+  const intro = [title, "1Introduction"];
+  const blocks = [
+    { ...block("B0001", "heading", title, [title]), paper: { role: "title" } },
+    { ...block("B0002", "other", "Names and affiliations", [title]), paper: { role: "authors" } },
+    { ...block("B0003", "heading", "Abstract", abstract), paper: { role: "abstract" } },
+    { ...block("B0004", "paragraph", "An overview of the system.", abstract), paper: { role: "abstract", paragraph: 1 } },
+    { ...block("B0005", "heading", "1Introduction", intro), paper: { role: "introduction" } },
+    { ...block("B0006", "paragraph", "Long tasks produce records.", intro), paper: { role: "introduction", paragraph: 1 } },
+    { ...block("B0007", "paragraph", "Previous methods summarize history.", intro), paper: { role: "introduction", paragraph: 2 } },
+    { ...block("B0008", "paragraph", "Each compaction reads the history it replaces.", intro), paper: { role: "introduction", paragraph: 3 } },
+    { ...block("B0009", "paragraph", "It then writes a new summary.", intro), paper: { role: "introduction", paragraph: 3 } },
+    { ...block("B0010", "paragraph", "The runtime selects an existing view.", intro), paper: { role: "introduction", paragraph: 4 } }
+  ];
+  const page = { ...pageWithBlocks(blocks), documentType: "paper" };
+  const question = "文章开头第三段 为什么说压缩次数增加工作量也会随之增加呢？在我看来每次压缩不都是创建进的对象对context 进行总结吗";
+  const plan = buildContextPlan({ page, question, history: [{ role: "user", content: "Abstract" }] });
+
+  assert.equal(plan.effectiveMode, "retrieved");
+  assert.deepEqual(plan.selectedBlocks.map((item) => item.id), ["B0005", "B0007", "B0008", "B0009", "B0010"]);
+  assert.match(plan.selectedBlocks[2].reasons[0], /按位置命中 · Introduction 第 3 段/);
+  assert.ok(!plan.selectedBlocks[2].truncated);
+  assert.ok(!plan.selectedBlocks[3].truncated);
+
+  const summary = buildContextPlan({ page, question: "摘要第1段讲了什么" });
+  assert.deepEqual(summary.selectedBlocks.map((item) => item.id), ["B0003", "B0004"]);
+
+  const full = buildContextPlan({ page, question, mode: "full" });
+  assert.equal(full.contextText, page.text);
+});
+
+test("paper title tokens do not pull the byline or unrelated sections into retrieval", () => {
+  const title = "Context Folding for Long-Horizon Agents";
+  const blocks = [
+    { ...block("B0001", "heading", title, [title]), paper: { role: "title" } },
+    { ...block("B0002", "other", "Names and affiliations", [title]), paper: { role: "authors" } },
+    block("B0003", "heading", "Abstract", [title, "Abstract"]),
+    block("B0004", "paragraph", "An overview of the system.", [title, "Abstract"]),
+    block("B0005", "heading", "Methods", [title, "Methods"]),
+    block("B0006", "paragraph", "The runtime folds the context programmatically.", [title, "Methods"])
+  ];
+  const plan = buildContextPlan({ page: pageWithBlocks(blocks), question: "context" }, { smallPageThreshold: 1 });
+
+  assert.deepEqual(plan.selectedBlocks.map((item) => item.id), ["B0005", "B0006"]);
+  assert.equal(plan.trace.candidateCount, 1);
+});
+
 test("automatic context limits lexical seeds and only expands within the same section", () => {
   const blocks = [
     block("B0001", "heading", "入口协议", ["入口协议"]),
@@ -121,6 +170,25 @@ test("automatic context gives separate lexical seeds to compound question clause
 
   assert.ok(plan.selectedBlocks.some((item) => item.id === "B0002"));
   assert.ok(plan.selectedBlocks.some((item) => item.id === "B0005"));
+});
+
+test("automatic context covers three independent clauses", () => {
+  const blocks = [
+    block("B0001", "heading", "入口", ["入口"]),
+    block("B0002", "paragraph", filler("入口使用蓝色信号", 900), ["入口"]),
+    block("B0003", "heading", "恢复", ["恢复"]),
+    block("B0004", "paragraph", filler("恢复依赖绿色信号", 900), ["恢复"]),
+    block("B0005", "heading", "审计", ["审计"]),
+    block("B0006", "paragraph", filler("审计保存红色信号", 900), ["审计"])
+  ];
+  const plan = buildContextPlan(
+    { page: pageWithBlocks(blocks), question: "入口什么颜色，恢复什么颜色，审计什么颜色？", mode: "auto" },
+    { smallPageThreshold: 100, charBudget: 4_000 }
+  );
+
+  for (const id of ["B0002", "B0004", "B0006"]) {
+    assert.ok(plan.selectedBlocks.some((item) => item.id === id), `${id} is sent`);
+  }
 });
 
 test("automatic context pins the block containing the current selection", () => {
@@ -172,6 +240,18 @@ test("automatic context respects the local character budget", () => {
   assert.ok(plan.contextText.length <= 2_000);
   assert.ok(plan.contextText.length <= AUTO_CONTEXT_CHAR_BUDGET);
   assert.ok(plan.selectedBlockCount <= 10);
+});
+
+test("automatic context falls back to full text when retrieval has no matches", () => {
+  const page = pageWithBlocks([
+    block("B0001", "heading", "数据库复制"),
+    block("B0002", "paragraph", filler("备用站写入探针", 17_000), ["数据库复制"])
+  ]);
+  const plan = buildContextPlan({ page, question: "雨林生态研究方法", mode: "auto" });
+
+  assert.equal(plan.effectiveMode, "full");
+  assert.equal(plan.contextText, page.text);
+  assert.match(plan.reason, /没有找到可安全发送/);
 });
 
 test("automatic context uses recent user questions for short follow-ups", () => {
@@ -236,6 +316,96 @@ test("automatic context samples multiple sections for an oversized overview", ()
   assert.ok(plan.selectedBlocks.some((item) => item.id === "B0001"));
   assert.ok(plan.selectedBlocks.some((item) => Number(item.id.slice(1)) >= 7));
   assert.ok(plan.contextText.length <= 5_000);
+});
+
+test("focused summary includes every matching workflow section and its use case", () => {
+  const workflowNames = [
+    "Prompt chaining",
+    "Routing",
+    "Parallelization",
+    "Orchestrator-workers",
+    "Evaluator-optimizer"
+  ];
+  const blocks = [
+    block("B0001", "heading", "Building effective agents", ["Building effective agents"]),
+    block("B0002", "paragraph", filler("Article introduction", 900), ["Building effective agents"])
+  ];
+  for (const name of workflowNames) {
+    const heading = `Workflow: ${name}`;
+    const path = ["Building effective agents", heading];
+    const nextId = () => `B${String(blocks.length + 1).padStart(4, "0")}`;
+    blocks.push(block(nextId(), "heading", heading, path));
+    blocks.push(block(nextId(), "paragraph", filler(`${name} definition`, 500), path));
+    blocks.push(block(nextId(), "paragraph", filler(`When to use this workflow: ${name} use case`, 500), path));
+    blocks.push(block(nextId(), "list", filler(`${name} examples`, 500), path));
+  }
+  blocks.push(block(`B${String(blocks.length + 1).padStart(4, "0")}`, "heading", "Appendix: tools", ["Building effective agents", "Appendix: tools"]));
+  blocks.push(block(`B${String(blocks.length + 1).padStart(4, "0")}`, "paragraph", filler("Tool appendix", 9_000), ["Building effective agents", "Appendix: tools"]));
+  const page = pageWithBlocks(blocks);
+
+  const plan = buildContextPlan({
+    page,
+    question: "总结一下 workflow 的五种架构以及使用场景，可以复制的 markdown 文档吧",
+    mode: "auto"
+  });
+
+  assert.equal(plan.effectiveMode, "retrieved");
+  assert.match(plan.reason, /多个同类章节/);
+  for (const name of workflowNames) {
+    assert.ok(plan.contextText.includes(`Workflow: ${name}`), `${name} heading is sent`);
+    assert.ok(plan.contextText.includes(`${name} definition`), `${name} definition is sent`);
+    assert.ok(plan.contextText.includes(`${name} use case`), `${name} use case is sent`);
+  }
+  assert.ok(!plan.contextText.includes("Tool appendix"));
+  assert.ok(plan.contextText.length <= AUTO_CONTEXT_CHAR_BUDGET);
+
+  const fullPlan = buildContextPlan({ page, question: "再结合全文核对", mode: "full" });
+  assert.equal(fullPlan.effectiveMode, "full");
+  for (const name of workflowNames) {
+    assert.ok(fullPlan.contextText.includes(`Workflow: ${name}`));
+  }
+
+  const topicalPlan = buildContextPlan({
+    page,
+    question: "总结 Workflow 的架构和使用场景",
+    mode: "auto"
+  });
+  for (const name of workflowNames) {
+    assert.ok(topicalPlan.contextText.includes(`${name} use case`), `${name} survives without a number cue`);
+  }
+
+  const specificPlan = buildContextPlan({
+    page,
+    question: "总结 Workflow: Routing 的适用场景",
+    mode: "auto"
+  });
+  assert.ok(specificPlan.contextText.includes("Routing use case"));
+  assert.ok(!specificPlan.contextText.includes("Parallelization use case"));
+});
+
+test("section retrieval reserves room for later sections when early definitions are long", () => {
+  const names = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+  const blocks = names.flatMap((name, sectionIndex) => {
+    const first = sectionIndex * 3 + 1;
+    const heading = `Pattern: ${name}`;
+    const path = [heading];
+    return [
+      block(`B${String(first).padStart(4, "0")}`, "heading", heading, path),
+      block(`B${String(first + 1).padStart(4, "0")}`, "paragraph", filler(`${name} definition`, 4_000), path),
+      block(`B${String(first + 2).padStart(4, "0")}`, "paragraph", `When to use: ${name} use case`, path)
+    ];
+  });
+  const plan = buildContextPlan({
+    page: pageWithBlocks(blocks),
+    question: "总结十二种 Pattern 及其使用场景",
+    mode: "auto"
+  });
+
+  for (const name of names) {
+    assert.ok(plan.contextText.includes(`Pattern: ${name}`));
+    assert.ok(plan.contextText.includes(`${name} use case`));
+  }
+  assert.ok(plan.contextText.length <= AUTO_CONTEXT_CHAR_BUDGET);
 });
 
 test("automatic context serializes a selected structured table as Markdown", () => {

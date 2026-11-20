@@ -82,6 +82,58 @@ test("extractPageContent creates typed blocks with heading paths and locators", 
   assert.equal(result.blocks[1].source.rootKind, "document");
 });
 
+test("arXiv HTML extraction preserves section roles and paragraph numbers through page merge", () => {
+  const titleText = "A Paper About Context";
+  const authorText = "Sample Author, Example University";
+  const introText = "Introduction text that spans two content blocks. ".repeat(100).trim();
+  const continuationText = "Continuation of the first paragraph.";
+  const result = withPage({
+    url: "https://arxiv.org/html/0000.00000v1",
+    innerText: [titleText, authorText, "Abstract", "Brief overview.", "1Introduction", introText,
+      continuationText, "Figure caption.", "Next paragraph."].join("\n\n")
+  }, () => {
+    const article = fakeElement("ARTICLE", "", globalThis.document.body);
+    const title = fakeElement("H1", titleText, article);
+    const authors = fakeElement("DIV", authorText, article);
+    const abstract = fakeElement("DIV", "", article);
+    const introduction = fakeElement("SECTION", "", article);
+    const abstractHeading = fakeElement("H6", "Abstract", abstract);
+    const summary = fakeElement("P", "Brief overview.", abstract);
+    const introHeading = fakeElement("H2", "1Introduction", introduction);
+    const paragraphGroup = fakeElement("DIV", "", introduction);
+    const first = fakeElement("P", introText, paragraphGroup);
+    const continuation = fakeElement("P", continuationText, paragraphGroup);
+    const caption = fakeElement("FIGCAPTION", "Figure caption.", introduction);
+    const second = fakeElement("P", "Next paragraph.", introduction);
+    const nodes = [title, authors, abstractHeading, summary, introHeading, first, continuation, caption, second];
+    globalThis.document.querySelectorAll = (selector) => {
+      if (selector === "article.ltx_document") return [article];
+      return selector.includes("blockquote") ? nodes : [];
+    };
+    article.querySelectorAll = (selector) => ({
+      ":scope > .ltx_title_document": [title],
+      ":scope > .ltx_authors": [authors],
+      ":scope > .ltx_abstract": [abstract],
+      ":scope > section.ltx_section": [introduction]
+    }[selector] || []);
+    abstract.querySelectorAll = (selector) => selector.includes("p.ltx_p") ? [summary] : [abstractHeading];
+    introduction.querySelectorAll = (selector) => selector.includes("p.ltx_p") ? [paragraphGroup, second] : [introHeading];
+    paragraphGroup.querySelectorAll = () => [first, continuation];
+    return extractPageContent();
+  });
+
+  const page = mergePageContents([{ frameId: 0, result }]);
+  assert.equal(page.documentFormat, "web");
+  assert.equal(page.documentType, "paper");
+  assert.deepEqual(page.blocks.map((item) => item.paper), [
+    { role: "title" }, { role: "authors" },
+    { role: "abstract" }, { role: "abstract", paragraph: 1 },
+    { role: "introduction" }, { role: "introduction", paragraph: 1 },
+    { role: "introduction", paragraph: 1 }, { role: "introduction", paragraph: 1 },
+    undefined, { role: "introduction", paragraph: 2 }
+  ]);
+});
+
 test("extractPageContent filters list items from structural navigation regions", () => {
   const result = withPage(
     { innerText: "Issues\n代码评审\n持续集成\nWiki\n报表" },
