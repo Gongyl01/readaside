@@ -285,6 +285,42 @@ test("extractPageContent includes text from open shadow roots", () => {
   assert.equal(shadowBlock.locator.shadowPath.length, 1);
 });
 
+test("extractPageContent ignores injected styles inside open shadow roots", () => {
+  const css = ":root { --immersive-translate-theme-underline-borderColor: #72ece9; }";
+  const wrapper = fakeElement("DIV", `${css}\n可见译文`, null);
+  const style = fakeElement("STYLE", css, wrapper);
+  const translation = fakeElement("P", "可见译文", wrapper);
+  wrapper.children = [style, translation];
+  const shadowRoot = {
+    children: [wrapper],
+    querySelectorAll() { return []; }
+  };
+  const result = withPage({ innerText: "Building effective agents" }, () => {
+    const host = { shadowRoot };
+    globalThis.document.querySelectorAll = (selector) => selector === "*" ? [host] : [];
+    return extractPageContent();
+  });
+
+  assert.match(result.text, /可见译文/);
+  assert.doesNotMatch(result.text, /immersive-translate/);
+  assert.ok(result.blocks.every((block) => !block.text.includes("immersive-translate")));
+});
+
+test("extractPageContent removes stylesheet text if a page exposes it through body.innerText", () => {
+  const css = ":root { --immersive-translate-theme-underline-borderColor: #72ece9; }";
+  const result = withPage({ innerText: `Building effective agents\n${css}` }, () => {
+    const body = globalThis.document.body;
+    const style = fakeElement("STYLE", css, body);
+    const article = fakeElement("ARTICLE", "Building effective agents", body);
+    body.children = [article, style];
+    body.querySelectorAll = (selector) => selector.includes("style") ? [style] : [];
+    return extractPageContent();
+  });
+
+  assert.equal(result.text, "Building effective agents");
+  assert.ok(result.blocks.every((block) => !block.text.includes("immersive-translate")));
+});
+
 test("extractPageContent reports embedded frames and canvases", () => {
   const result = withPage({ innerText: "页面" }, () => {
     globalThis.document.querySelectorAll = (selector) => {
